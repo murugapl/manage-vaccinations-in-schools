@@ -18,13 +18,12 @@ class AppConsentComponent < ViewComponent::Base
     @consents ||= patient_session.consents.sort_by(&:created_at).reverse
   end
 
-  def latest_consent_request
-    @latest_consent_request ||=
+  def latest_consent_request_or_reminder
+    @latest_consent_request_or_reminder ||=
       patient
         .consent_notifications
-        .request
         .where(programme: session.programmes)
-        .order(sent_at: :desc)
+        .order(sent_at: :desc, id: :desc)
         .first
   end
 

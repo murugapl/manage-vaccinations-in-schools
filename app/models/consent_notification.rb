@@ -40,6 +40,10 @@ class ConsentNotification < ApplicationRecord
        { request: 0, initial_reminder: 1, subsequent_reminder: 2 },
        validate: true
 
+  def type_text
+    I18n.t("consent_notifications.types.#{type}")
+  end
+
   def reminder?
     initial_reminder? || subsequent_reminder?
   end

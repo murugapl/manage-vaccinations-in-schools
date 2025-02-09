@@ -1,13 +1,13 @@
 <%= render AppConsentStatusComponent.new(patient_session:) %>
 
 <% if patient_session.no_consent? %>
-  <% if latest_consent_request %>
+  <% if latest_consent_request_or_reminder %>
     <p class="nhsuk-body">
       No-one responded to our requests for consent.
     </p>
 
     <p class="nhsuk-body">
-      A request was sent on <%= latest_consent_request.sent_at.to_fs(:long) %>.
+      A <%= latest_consent_request_or_reminder.type_text %> was sent on <%= latest_consent_request_or_reminder.sent_at.to_fs(:long) %>.
     </p>
   <% else %>
     <p class="nhsuk-body">
@@ -50,7 +50,11 @@
 
 <div class="app-button-group nhsuk-u-margin-bottom-0">
   <% if can_send_consent_request? %>
-    <%= govuk_button_to "Send consent request", send_request_session_patient_consents_path(session, patient, section: @section, tab: @tab), class: "app-button--secondary" %>
+    <% if latest_consent_request_or_reminder && session.location.school? %>
+      <%= govuk_button_to "Send consent reminder", send_reminder_session_patient_consents_path(session, patient, section: @section, tab: @tab), class: "app-button--secondary" %>
+    <% else %>
+      <%= govuk_button_to "Send consent request", send_request_session_patient_consents_path(session, patient, section: @section, tab: @tab), class: "app-button--secondary" %>
+    <% end %>
   <% end %>
 
   <%= govuk_button_to "Get consent response", session_patient_consents_path(session, patient, section: @section, tab: @tab), class: "app-button--secondary" %>

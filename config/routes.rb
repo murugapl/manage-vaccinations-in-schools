@@ -312,6 +312,7 @@ Rails.application.routes.draw do
 
         resources :consents, only: %i[index create show] do
           post "send-request", on: :collection, action: :send_request
+          post "send-reminder", on: :collection, action: :send_reminder
 
           member do
             get "withdraw", action: :edit_withdraw

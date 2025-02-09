@@ -7,7 +7,7 @@ class ConsentsController < ApplicationController
   before_action :set_session
   before_action :set_patient_session, except: :index
   before_action :set_patient, except: :index
-  before_action :set_consent, except: %i[index create send_request]
+  before_action :set_consent, except: %i[index create send_request send_reminder]
   before_action :ensure_can_withdraw, only: %i[edit_withdraw update_withdraw]
   before_action :ensure_can_invalidate,
                 only: %i[edit_invalidate update_invalidate]
@@ -56,12 +56,26 @@ class ConsentsController < ApplicationController
   def send_request
     return unless @patient_session.no_consent?
 
+    send_request_or_reminder(:request)
+  end
+
+  def send_reminder
+    return unless @patient_session.no_consent?
+
+    sent_initial_reminder = @patient.consent_notifications.any?(&:initial_reminder?)
+    type = sent_initial_reminder ? :subsequent_reminder : :initial_reminder
+    send_request_or_reminder(type)
+  end
+
+  def send_request_or_reminder(type)
+    type_text = I18n.t("consent_notifications.types.#{type}")
+
     @session.programmes.each do |programme|
       ConsentNotification.create_and_send!(
         patient: @patient,
         programme:,
         session: @session,
-        type: :request,
+        type:,
         current_user:
       )
     end
@@ -73,7 +87,7 @@ class ConsentsController < ApplicationController
                   tab: params[:tab]
                 ),
                 flash: {
-                  success: "Consent request sent."
+                  success: "#{type_text} sent.".capitalize
                 }
   end
 

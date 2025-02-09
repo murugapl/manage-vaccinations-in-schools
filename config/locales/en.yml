@@ -723,6 +723,11 @@ en:
         other: Why are they refusing to give consent?
         personal_choice: Why are they refusing to give consent?
         will_be_vaccinated_elsewhere: Where will their child get their vaccination?
+  consent_notifications:
+    types:
+      request: consent request
+      initial_reminder: first consent reminder
+      subsequent_reminder: follow-up consent reminder
   hosting_environment: This is a %{name} environment. Do not use it to make clinical decisions.
   imports:
     index:
