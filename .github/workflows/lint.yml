@@ -2,7 +2,6 @@ name: Lint
 
 on:
   pull_request:
-  workflow_dispatch:
 
 jobs:
   prettier:
@@ -59,8 +58,8 @@ jobs:
           bundler-cache: true
       - run: bin/bundle exec brakeman
 
-  terraform:
-    name: Terraform
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
 
     steps:
@@ -74,4 +73,4 @@ jobs:
       - name: Install pre-commit
         run: pip install pre-commit
       - name: Run pre-commit
-        run: pre-commit run
+        run: pre-commit run --all-files --hook-stage manual
