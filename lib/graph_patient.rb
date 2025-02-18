@@ -28,11 +28,16 @@ class GraphPatient
 
     @visited_patients = []
     @visited_parents = []
+
+    @nodes = []
+    @graph = []
   end
 
   def call
-    ["flowchart TB"] + styles + @patients.flat_map { patient_graph(it) } +
-      @parents.flat_map { parent_graph(it) }
+    @patients.each { graph_patient(it) }
+    @parents.each { graph_parent(it) }
+
+    ["flowchart TB"] + styles + @nodes + @graph
   end
 
   def styles
@@ -47,25 +52,27 @@ class GraphPatient
     ]
   end
 
-  def patient_graph(patient)
-    return [] if @visited_patients.include?(patient)
+  def graph_patient(patient)
+    return if @visited_patients.include?(patient)
 
     @visited_patients << patient
 
     node = patient_node(patient)
+    @nodes << node
+
     parents =
       patient.parents.includes(:consents, :class_imports, :cohort_imports)
-    parent_connections =
-      parents.flat_map do
-        ["  #{node} --> #{parent_node(it)}"] + parent_graph(it)
-      end
+    parents.each do
+      @graph << [node, parent_node(it)]
+      graph_parent(it)
+    end
 
-    ["  #{node}"] + parent_connections + consent_connections(patient) +
-      class_imports_connections(patient) + cohort_imports_connections(patient)
+    consent_connections(patient) + class_imports_connections(patient) +
+      cohort_imports_connections(patient)
   end
 
-  def parent_graph(parent)
-    return [] if @visited_parents.include?(parent)
+  def graph_parent(parent)
+    return if @visited_parents.include?(parent)
 
     @visited_parents << parent
 
