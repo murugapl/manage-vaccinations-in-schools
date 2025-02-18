@@ -42,6 +42,18 @@ module ManageVaccinations
       ENV[
         "DATABASE_URL"
       ] = "postgres://#{username}:#{password}@#{host}:#{port}/#{dbname}"
+      # for environment which uses RDS aurora managed credentials only the the username
+      # and password is automaticallyset. The environment variable is then DB_CREDENTIALS
+    elsif ENV["DB_CREDENTIALS"].present?
+      db_config = JSON.parse(ENV["DB_CREDENTIALS"])
+      username = CGI.escape(db_config["username"])
+      password = CGI.escape(db_config["password"])
+      host = CGI.escape(ENV["DB_HOST"])
+      dbname = CGI.escape(db_config["DB_NAME"])
+      port = 5432
+      ENV[
+        "DATABASE_URL"
+      ] = "postgres://#{username}:#{password}@#{host}:#{port}/#{dbname}"
     end
 
     config.middleware.use Rack::Deflater
