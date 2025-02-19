@@ -30,6 +30,7 @@ class GraphPatient
 
     @nodes = Set.new
     @edges = Set.new
+    @inspected = Set.new
   end
 
   def patients
@@ -43,12 +44,12 @@ class GraphPatient
   def call
     custom_patients_association(self).each do |patient|
       @nodes << patient
-      introspect_patients(patient)
+      inspect(patient)
     end
 
     custom_parents_association(self).each do |parent|
       @nodes << parent
-      introspect_parent(parent)
+      inspect(parent)
     end
 
     ["flowchart TB"] + styles + render_nodes + render_edges
@@ -85,41 +86,37 @@ class GraphPatient
     @edges.map { |from, to| "  #{node_name(from)} --> #{node_name(to)}" }
   end
 
-  def collect_association(obj, association)
-    return unless @show_associations[association]
+  def inspect(obj)
+    return unless inspect_class?(obj)
 
-    records =
-      if respond_to?("custom_#{association}_association")
-        send("custom_#{association}_association", obj)
+    return if @inspected.include?(obj)
+    @inspected << obj
+
+    association_types = obj.class.reflect_on_all_associations.map(&:name)
+    association_types.each { collect_association(obj, it) }
+  end
+
+  def collect_association(obj, association_name)
+    return unless @show_associations[association_name]
+
+    associated =
+      if respond_to?("custom_#{association_name}_association")
+        send("custom_#{association_name}_association", obj)
       else
-        obj.send(association)
+        obj.send(association_name)
       end
 
-    records.each do
+    associated.each do
+      @nodes << it
       @edges << (reverse_nodes?(obj, it) ? [it, obj] : [obj, it])
 
-      if respond_to?("introspect_#{association}")
-        next if @nodes.include?(it)
-        @nodes << it
-        send("introspect_#{association}", it)
-      else
-        @nodes << it
-      end
+      inspect(it)
     end
   end
 
-  def introspect_patients(patient)
-    collect_association(patient, :parents)
-    collect_association(patient, :consents)
-    collect_association(patient, :class_imports)
-    collect_association(patient, :cohort_imports)
-  end
-
-  def introspect_parents(parent)
-    collect_association(parent, :patients)
-    collect_association(parent, :consents)
-    collect_association(parent, :class_imports)
-    collect_association(parent, :cohort_imports)
+  # TODO: This should be configurable
+  def inspect_class?(record)
+    record.class.name.in?(%w[Patient Parent])
   end
 
   def custom_parents_association(obj)
