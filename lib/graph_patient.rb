@@ -8,17 +8,11 @@ class GraphPatient
     show_class_imports: true,
     show_cohort_imports: true,
     focus_patients: [],
-    focus_parents: []
+    focus_parents: [],
+    node_order: %i[class_import cohort_import patient consent parent]
   )
     @patient_ids = patient_ids
     @parent_ids = parents
-    # @show_associations = {
-    #   class_imports: show_class_imports,
-    #   cohort_imports: show_cohort_imports,
-    #   consents: show_consents,
-    #   patients: true,
-    #   parents: true
-    # }
     @focus_objects =
       patients +
         Array(focus_patients).map! do |it|
@@ -27,6 +21,7 @@ class GraphPatient
         Array(focus_parents).map! do |it|
           it.is_a?(Parent) ? it : Parent.find(it)
         end
+    @node_order = node_order
     @inspection_list = {
       patient: %i[parents consents class_imports cohort_imports],
       parent: %i[consents class_imports cohort_imports]
@@ -75,15 +70,8 @@ class GraphPatient
     @nodes.to_a.map { "  #{node_with_class(it)}" }
   end
 
-  def reverse_nodes?(from, to)
-    [
-      [Patient, ClassImport],
-      [Patient, CohortImport],
-      [Parent, ClassImport],
-      [Parent, CohortImport],
-      [Parent, Consent],
-      [Parent, Patient]
-    ].include?([from.class, to.class])
+  def order_nodes(*nodes)
+    nodes.sort_by { @node_order.index(it.class.name.underscore.to_sym) }
   end
 
   def render_edges
@@ -100,7 +88,7 @@ class GraphPatient
     associations_list.each do
       get_associated_objects(obj, it).each do
         @nodes << it
-        @edges << (reverse_nodes?(obj, it) ? [it, obj] : [obj, it])
+        @edges << order_nodes(obj, it)
 
         inspect(it)
       end
