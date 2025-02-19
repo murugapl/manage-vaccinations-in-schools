@@ -12,13 +12,13 @@ class GraphPatient
   )
     @patient_ids = patient_ids
     @parent_ids = parents
-    @show_associations = {
-      class_imports: show_class_imports,
-      cohort_imports: show_cohort_imports,
-      consents: show_consents,
-      patients: true,
-      parents: true
-    }
+    # @show_associations = {
+    #   class_imports: show_class_imports,
+    #   cohort_imports: show_cohort_imports,
+    #   consents: show_consents,
+    #   patients: true,
+    #   parents: true
+    # }
     @focus_objects =
       patients +
         Array(focus_patients).map! do |it|
@@ -27,6 +27,10 @@ class GraphPatient
         Array(focus_parents).map! do |it|
           it.is_a?(Parent) ? it : Parent.find(it)
         end
+    @inspection_list = {
+      patient: %i[parents consents class_imports cohort_imports],
+      parent: %i[consents class_imports cohort_imports]
+    }
 
     @nodes = Set.new
     @edges = Set.new
@@ -42,12 +46,12 @@ class GraphPatient
   end
 
   def call
-    custom_patients_association(self).each do |patient|
+    associated_patients_objects(self).each do |patient|
       @nodes << patient
       inspect(patient)
     end
 
-    custom_parents_association(self).each do |parent|
+    associated_parents_objects(self).each do |parent|
       @nodes << parent
       inspect(parent)
     end
@@ -87,44 +91,40 @@ class GraphPatient
   end
 
   def inspect(obj)
-    return unless inspect_class?(obj)
+    associations_list = @inspection_list[obj.class.name.underscore.to_sym]
+    return unless associations_list.present?
 
     return if @inspected.include?(obj)
     @inspected << obj
 
-    association_types = obj.class.reflect_on_all_associations.map(&:name)
-    association_types.each { collect_association(obj, it) }
-  end
+    associations_list.each do
+      get_associated_objects(obj, it).each do
+        @nodes << it
+        @edges << (reverse_nodes?(obj, it) ? [it, obj] : [obj, it])
 
-  def collect_association(obj, association_name)
-    return unless @show_associations[association_name]
-
-    associated =
-      if respond_to?("custom_#{association_name}_association")
-        send("custom_#{association_name}_association", obj)
-      else
-        obj.send(association_name)
+        inspect(it)
       end
-
-    associated.each do
-      @nodes << it
-      @edges << (reverse_nodes?(obj, it) ? [it, obj] : [obj, it])
-
-      inspect(it)
     end
   end
 
-  # TODO: This should be configurable
+  def get_associated_objects(obj, association_name)
+    if respond_to?("associated_#{association_name}_objects")
+      send("associated_#{association_name}_objects", obj)
+    else
+      obj.send(association_name)
+    end
+  end
+
   def inspect_class?(record)
-    record.class.name.in?(%w[Patient Parent])
+    @inspection_list[record.class.name.underscore.to_sym]
   end
 
-  def custom_parents_association(obj)
-    obj.parents.includes(:consents, :class_imports, :cohort_imports)
+  def associated_parents_objects(base)
+    base.parents.includes(:consents, :class_imports, :cohort_imports)
   end
 
-  def custom_patients_association(obj)
-    obj.patients.includes(:parents, :class_imports, :cohort_imports)
+  def associated_patients_objects(base)
+    base.patients.includes(:parents, :class_imports, :cohort_imports)
   end
 
   def node_name(obj)
