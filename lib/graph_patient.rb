@@ -51,19 +51,21 @@ class GraphPatient
       inspect(parent)
     end
 
-    ["flowchart TB"] + styles + render_nodes + render_edges
+    ["flowchart TB"] + render_styles + render_nodes + render_edges
   end
 
-  def styles
-    [
-      "  classDef patient fill:#c2e598",
-      "  classDef parent fill:#faa0a0",
-      "  classDef consent fill:#fffaa0",
-      "  classDef class_import fill:#7fd7df",
-      "  classDef cohort_import fill:#a2d2ff",
-      "  classDef patient_focused fill:#c2e598,stroke:#000,stroke-width:3px",
-      "  classDef parent_focused fill:#faa0a0,stroke:#000,stroke-width:3px"
-    ]
+  def render_styles
+    {
+      patient: "fill:#c2e598",
+      parent: "fill:#faa0a0",
+      consent: "fill:#fffaa0",
+      class_import: "fill:#7fd7df",
+      cohort_import: "fill:#a2d2ff",
+      patient_focused: "fill:#c2e598,stroke:#000,stroke-width:3px",
+      parent_focused: "fill:#faa0a0,stroke:#000,stroke-width:3px"
+    }.with_indifferent_access
+      .slice(*(@nodes.map { class_text_for_obj(it) }))
+      .map { |klass, style| "  classDef #{klass} #{style}" }
   end
 
   def render_nodes
