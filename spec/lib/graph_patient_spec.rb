@@ -31,21 +31,18 @@ describe GraphPatient do
   it { should start_with "flowchart TB" }
 
   it "generates the graph" do
-    puts graph
     expect(graph).to contain_exactly(
       "flowchart TB",
-      "  classDef patient fill:#c2e598",
+      "  classDef patient_focused fill:#c2e598,stroke:#000,stroke-width:3px",
       "  classDef parent fill:#faa0a0",
       "  classDef consent fill:#fffaa0",
       "  classDef class_import fill:#7fd7df",
-      "  classDef patient_focused fill:#c2e598,stroke:#000,stroke-width:3px",
-      "  classDef parent_focused fill:#faa0a0,stroke:#000,stroke-width:3px",
       "  classDef cohort_import fill:#a2d2ff",
       "  patient-#{patient.id}:::patient_focused",
       "  parent-#{parent.id}:::parent",
-      # "  consent-#{consent.id}:::consent",
-      # "  class_import-#{class_import.id}:::class_import",
-      # "  cohort_import-#{cohort_import.id}:::cohort_import",
+      "  consent-#{consent.id}:::consent",
+      "  class_import-#{class_import.id}:::class_import",
+      "  cohort_import-#{cohort_import.id}:::cohort_import",
       "  patient-#{patient.id} --> parent-#{parent.id}",
       "  consent-#{consent.id} --> parent-#{parent.id}",
       "  class_import-#{class_import.id} --> parent-#{parent.id}",

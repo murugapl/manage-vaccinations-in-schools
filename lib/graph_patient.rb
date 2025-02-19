@@ -2,7 +2,7 @@
 
 class GraphPatient
   def initialize(
-    *patients,
+    *patient_ids,
     parents: [],
     show_consents: true,
     show_class_imports: true,
@@ -10,34 +10,48 @@ class GraphPatient
     focus_patients: [],
     focus_parents: []
   )
-    @patients = patients.map { it.is_a?(Patient) ? it : Patient.find(it) }
-    @parents = parents.map { it.is_a?(Parent) ? it : Parent.find(it) }
-    @show_consents = show_consents
-    @show_class_imports = show_class_imports
-    @show_cohort_imports = show_cohort_imports
-    @focus_patients =
-      @patients +
+    @patient_ids = patient_ids
+    @parent_ids = parents
+    @show_associations = {
+      class_imports: show_class_imports,
+      cohort_imports: show_cohort_imports,
+      consents: show_consents,
+      patients: true,
+      parents: true
+    }
+    @focus_objects =
+      patients +
         Array(focus_patients).map! do |it|
           it.is_a?(Patient) ? it : Patient.find(it)
-        end
-    @focus_parents =
-      @parents +
+        end + parents +
         Array(focus_parents).map! do |it|
           it.is_a?(Parent) ? it : Parent.find(it)
         end
 
-    @visited_patients = []
-    @visited_parents = []
+    @nodes = Set.new
+    @edges = Set.new
+  end
 
-    @nodes = []
-    @graph = []
+  def patients
+    @patients ||= Patient.where(id: @patient_ids)
+  end
+
+  def parents
+    @parents ||= Parent.where(id: @parent_ids)
   end
 
   def call
-    @patients.each { graph_patient(it) }
-    @parents.each { graph_parent(it) }
+    custom_patients_association(self).each do |patient|
+      @nodes << patient
+      introspect_patients(patient)
+    end
 
-    ["flowchart TB"] + styles + @nodes + @graph
+    custom_parents_association(self).each do |parent|
+      @nodes << parent
+      introspect_parent(parent)
+    end
+
+    ["flowchart TB"] + styles + render_nodes + render_edges
   end
 
   def styles
@@ -52,117 +66,80 @@ class GraphPatient
     ]
   end
 
-  def graph_patient(patient)
-    return if @visited_patients.include?(patient)
+  def render_nodes
+    @nodes.to_a.map { "  #{node_with_class(it)}" }
+  end
 
-    @visited_patients << patient
+  def reverse_nodes?(from, to)
+    [
+      [Patient, ClassImport],
+      [Patient, CohortImport],
+      [Parent, ClassImport],
+      [Parent, CohortImport],
+      [Parent, Consent],
+      [Parent, Patient]
+    ].include?([from.class, to.class])
+  end
 
-    node = patient_node(patient)
-    @nodes << node
+  def render_edges
+    @edges.map { |from, to| "  #{node_name(from)} --> #{node_name(to)}" }
+  end
 
-    parents =
-      patient.parents.includes(:consents, :class_imports, :cohort_imports)
-    parents.each do
-      @graph << [node, parent_node(it)]
-      graph_parent(it)
+  def collect_association(obj, association)
+    return unless @show_associations[association]
+
+    records =
+      if respond_to?("custom_#{association}_association")
+        send("custom_#{association}_association", obj)
+      else
+        obj.send(association)
+      end
+
+    records.each do
+      @edges << (reverse_nodes?(obj, it) ? [it, obj] : [obj, it])
+
+      if respond_to?("introspect_#{association}")
+        next if @nodes.include?(it)
+        @nodes << it
+        send("introspect_#{association}", it)
+      else
+        @nodes << it
+      end
     end
-
-    consent_connections(patient) + class_imports_connections(patient) +
-      cohort_imports_connections(patient)
   end
 
-  def graph_parent(parent)
-    return if @visited_parents.include?(parent)
-
-    @visited_parents << parent
-
-    patients =
-      parent.patients.includes(:parents, :class_imports, :cohort_imports)
-    patient_connections = patients.flat_map { patient_graph(it) }
-
-    ["  #{parent_node(parent)}"] + patient_connections +
-      consent_connections(parent) + class_imports_connections(parent) +
-      cohort_imports_connections(parent)
+  def introspect_patients(patient)
+    collect_association(patient, :parents)
+    collect_association(patient, :consents)
+    collect_association(patient, :class_imports)
+    collect_association(patient, :cohort_imports)
   end
 
-  def patient_node(patient)
-    "patient-#{patient.id}:::#{class_for_patient(patient)}"
+  def introspect_parents(parent)
+    collect_association(parent, :patients)
+    collect_association(parent, :consents)
+    collect_association(parent, :class_imports)
+    collect_association(parent, :cohort_imports)
   end
 
-  def parent_node(parent)
-    "parent-#{parent.id}:::#{class_for_parent(parent)}"
+  def custom_parents_association(obj)
+    obj.parents.includes(:consents, :class_imports, :cohort_imports)
   end
 
-  def consent_node(consent)
-    "consent-#{consent.id}:::#{class_for_consent(consent)}"
+  def custom_patients_association(obj)
+    obj.patients.includes(:parents, :class_imports, :cohort_imports)
   end
 
-  def class_import_node(class_import)
-    "class_import-#{class_import.id}:::#{class_for_class_import(class_import)}"
-  end
-
-  def node_text(obj)
+  def node_name(obj)
     klass = obj.class.name.underscore
-    diagram_class_name = class_text_for_obj(obj)
-    "#{klass}-#{obj.id}:::#{diagram_class_name}"
+    "#{klass}-#{obj.id}"
   end
 
-  def consent_connections(obj)
-    return [] unless @show_consents
-
-    case obj
-    when Patient
-      obj_node = patient_node(obj)
-      obj.consents.map { "  #{obj_node} --> #{consent_node(it)}" }
-    when Parent
-      obj_node = parent_node(obj)
-      obj.consents.map { "  #{consent_node(it)} --> #{obj_node}" }
-    end
-  end
-
-  def class_imports_connections(obj)
-    return [] unless @show_class_imports
-
-    obj_node =
-      case obj
-      when Patient
-        patient_node(obj)
-      when Parent
-        parent_node(obj)
-      end
-    obj.class_imports.map { "  #{class_import_node(it)} --> #{obj_node}" }
-  end
-
-  def cohort_imports_connections(obj)
-    return [] unless @show_cohort_imports
-
-    obj_node =
-      case obj
-      when Patient
-        patient_node(obj)
-      when Parent
-        parent_node(obj)
-      end
-    obj.cohort_imports.map { "  #{node_text(it)} --> #{obj_node}" }
-  end
-
-  def class_for_patient(patient)
-    @focus_patients.include?(patient) ? "patient_focused" : "patient"
-  end
-
-  def class_for_parent(parent)
-    @focus_parents.include?(parent) ? "parent_focused" : "parent"
-  end
-
-  def class_for_consent(_consent)
-    "consent"
-  end
-
-  def class_for_class_import(_class_import)
-    "class_import"
+  def node_with_class(obj)
+    "#{node_name(obj)}:::#{class_text_for_obj(obj)}"
   end
 
   def class_text_for_obj(obj)
-    obj.class.name.underscore
+    obj.class.name.underscore + (obj.in?(@focus_objects) ? "_focused" : "")
   end
 end
