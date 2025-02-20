@@ -6,7 +6,8 @@ class GraphPatient
     parents: [],
     focus_patients: [],
     focus_parents: [],
-    node_order: %i[class_import cohort_import patient consent parent]
+    node_order: %i[class_import cohort_import patient consent parent],
+    traversals_config: {}
   )
     @patient_ids = patient_ids
     @parent_ids = parents
@@ -19,14 +20,18 @@ class GraphPatient
           it.is_a?(Parent) ? it : Parent.find(it)
         end
     @node_order = node_order
-    @inspection_list = {
-      patient: %i[parents consents class_imports cohort_imports],
-      parent: %i[consents class_imports cohort_imports]
-    }
+    @traversals_config = traversals_config
 
     @nodes = Set.new
     @edges = Set.new
     @inspected = Set.new
+  end
+
+  def traversals
+    @traversals ||= {
+      patient: %i[parents consents class_imports cohort_imports],
+      parent: %i[consents class_imports cohort_imports]
+    }.merge(@traversals_config)
   end
 
   def patients
@@ -74,7 +79,7 @@ class GraphPatient
   end
 
   def inspect(obj)
-    associations_list = @inspection_list[obj.class.name.underscore.to_sym]
+    associations_list = traversals[obj.class.name.underscore.to_sym]
     return if associations_list.blank?
 
     return if @inspected.include?(obj)
@@ -96,10 +101,6 @@ class GraphPatient
     else
       obj.send(association_name)
     end
-  end
-
-  def inspect_class?(record)
-    @inspection_list[record.class.name.underscore.to_sym]
   end
 
   def associated_parents_objects(base)
