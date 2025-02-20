@@ -2,42 +2,44 @@
 
 class GraphPatient
   # @param parents [Array] Array of objects to focus on
-  # @param focus_ids [Hash] Hash of class names to ids to focus on (make bold)
-  # @param focus [Array] Array of objects to focus on (make bold)
+  # @param focus_config [Hash] Hash of class names to ids to focus on (make bold)
   # @param node_order [Array] Array of class names in order to render nodes
   # @param traversals_config [Hash] Hash of class names and arrays of associations to traverse
   def initialize(
     *patient_ids,
     parents: [],
-    focus: [],
-    focus_ids: {},
+    focus_config: {},
     node_order: %i[class_import cohort_import patient consent parent],
     traversals_config: {}
   )
     @patient_ids = patient_ids
     @parent_ids = parents
-    @focus_objects =
-      patients + parents + focus +
-        focus_ids.map { _1.to_s.classify.constantize.where(id: _2) }
+    @focus_config = focus_config
     @node_order = node_order
     @traversals_config = traversals_config
+  end
 
+  def graph(**objects)
     @nodes = Set.new
     @edges = Set.new
     @inspected = Set.new
-  end
+    @focus = @focus_config.map { _1.to_s.classify.constantize.where(id: _2) }
 
-  def call
-    associated_patients_objects(self).each do |patient|
-      @nodes << patient
-      inspect(patient)
+    objects.map do |klass, ids|
+      class_name = klass.to_s.singularize
+      associated_objects =
+        load_association(
+          class_name,
+          class_name.classify.constantize.where(id: ids)
+        )
+
+      @focus += associated_objects
+
+      associated_objects.each do |obj|
+        @nodes << obj
+        inspect(obj)
+      end
     end
-
-    associated_parents_objects(self).each do |parent|
-      @nodes << parent
-      inspect(parent)
-    end
-
     ["flowchart TB"] + render_styles + render_nodes + render_edges
   end
 
@@ -46,14 +48,6 @@ class GraphPatient
       patient: %i[parents consents class_imports cohort_imports],
       parent: %i[consents class_imports cohort_imports]
     }.merge(@traversals_config)
-  end
-
-  def patients
-    @patients ||= Patient.where(id: @patient_ids)
-  end
-
-  def parents
-    @parents ||= Parent.where(id: @parent_ids)
   end
 
   def render_styles
@@ -96,19 +90,27 @@ class GraphPatient
   end
 
   def get_associated_objects(obj, association_name)
-    if respond_to?("associated_#{association_name}_objects")
-      send("associated_#{association_name}_objects", obj)
+    obj
+      .send(association_name)
+      .then do |associated_objects|
+        load_association(association_name, associated_objects)
+      end
+  end
+
+  def load_association(association_name, associated_objects)
+    if respond_to?("#{association_name}_loader")
+      send("#{association_name}_loader", associated_objects)
     else
-      obj.send(association_name)
+      associated_objects
     end
   end
 
-  def associated_parents_objects(base)
-    base.parents.includes(:consents, :class_imports, :cohort_imports)
+  def parents_loader(parents)
+    parents.includes(:consents, :class_imports, :cohort_imports)
   end
 
-  def associated_patients_objects(base)
-    base.patients.includes(:parents, :class_imports, :cohort_imports)
+  def patients_loader(patients)
+    patients.includes(:parents, :class_imports, :cohort_imports)
   end
 
   def order_nodes(*nodes)
@@ -125,6 +127,6 @@ class GraphPatient
   end
 
   def class_text_for_obj(obj)
-    obj.class.name.underscore + (obj.in?(@focus_objects) ? "_focused" : "")
+    obj.class.name.underscore + (obj.in?(@focus) ? "_focused" : "")
   end
 end

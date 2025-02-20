@@ -1,5 +1,5 @@
 describe GraphPatient do
-  subject(:graph) { described_class.new(patient).call }
+  subject(:graph) { described_class.new.graph(patients: [patient]) }
 
   let!(:programme) { create(:programme, :hpv) }
   let!(:organisation) { create(:organisation, programmes: [programme]) }
