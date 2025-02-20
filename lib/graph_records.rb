@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class GraphPatient
+class GraphRecords
   # @param parents [Array] Array of objects to focus on
   # @param focus_config [Hash] Hash of class names to ids to focus on (make bold)
   # @param node_order [Array] Array of class names in order to render nodes

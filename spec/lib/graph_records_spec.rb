@@ -1,4 +1,4 @@
-describe GraphPatient do
+describe GraphRecords do
   subject(:graph) { described_class.new.graph(patients: [patient]) }
 
   let!(:programme) { create(:programme, :hpv) }
