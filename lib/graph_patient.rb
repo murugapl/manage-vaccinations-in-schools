@@ -1,30 +1,44 @@
 # frozen_string_literal: true
 
 class GraphPatient
+  # @param parents [Array] Array of objects to focus on
+  # @param focus_ids [Hash] Hash of class names to ids to focus on (make bold)
+  # @param focus [Array] Array of objects to focus on (make bold)
+  # @param node_order [Array] Array of class names in order to render nodes
+  # @param traversals_config [Hash] Hash of class names and arrays of associations to traverse
   def initialize(
     *patient_ids,
     parents: [],
-    focus_patients: [],
-    focus_parents: [],
+    focus: [],
+    focus_ids: {},
     node_order: %i[class_import cohort_import patient consent parent],
     traversals_config: {}
   )
     @patient_ids = patient_ids
     @parent_ids = parents
     @focus_objects =
-      patients +
-        Array(focus_patients).map! do |it|
-          it.is_a?(Patient) ? it : Patient.find(it)
-        end + parents +
-        Array(focus_parents).map! do |it|
-          it.is_a?(Parent) ? it : Parent.find(it)
-        end
+      patients + parents + focus +
+        focus_ids.map { _1.to_s.classify.constantize.where(id: _2) }
     @node_order = node_order
     @traversals_config = traversals_config
 
     @nodes = Set.new
     @edges = Set.new
     @inspected = Set.new
+  end
+
+  def call
+    associated_patients_objects(self).each do |patient|
+      @nodes << patient
+      inspect(patient)
+    end
+
+    associated_parents_objects(self).each do |parent|
+      @nodes << parent
+      inspect(parent)
+    end
+
+    ["flowchart TB"] + render_styles + render_nodes + render_edges
   end
 
   def traversals
@@ -40,20 +54,6 @@ class GraphPatient
 
   def parents
     @parents ||= Parent.where(id: @parent_ids)
-  end
-
-  def call
-    associated_patients_objects(self).each do |patient|
-      @nodes << patient
-      inspect(patient)
-    end
-
-    associated_parents_objects(self).each do |parent|
-      @nodes << parent
-      inspect(parent)
-    end
-
-    ["flowchart TB"] + render_styles + render_nodes + render_edges
   end
 
   def render_styles
