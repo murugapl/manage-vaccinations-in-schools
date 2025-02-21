@@ -63,7 +63,7 @@ class TimelineRecords
         event_type: 'school_move_log',
         id: move.id,
         details: "to<br> #{move.school_id.nil? ? patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
-         (move.user_id.nil? ? "" : "<br> performed by<br> User-#{move.user_id}")
+         (move.user_id.nil? ? "" : "<br> performed by<br> User-#{move.user_id}"),
         created_at: move.created_at
       }
     end
@@ -125,7 +125,7 @@ class TimelineRecords
   end
 
   def format_timeline
-    timeline = ["%%{init: { 'logLevel': 'debug', 'theme': 'default' } }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
+    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
     current_date = nil
     current_time = nil
     stacked_events = []
@@ -164,7 +164,6 @@ class TimelineRecords
       timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
     end
   
-    puts timeline.join("\n")
   end
 
   def format_event_description(event)

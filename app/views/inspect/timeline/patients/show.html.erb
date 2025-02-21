@@ -1,0 +1,14 @@
+<%= h1 page_title: @patient.initials do %>
+  <%= @patient.full_name %>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+  </script>
+  <pre class="mermaid">
+    <%= @mermaid_code.html_safe %>
+  </pre>
+  <div>
+    <%= h @mermaid_code.html_safe %>
+  </div>
+
+<% end %>
