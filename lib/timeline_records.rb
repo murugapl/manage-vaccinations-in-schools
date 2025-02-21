@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class TimelineRecords
   def initialize(patient_id)
     @patient = Patient.find(patient_id)
@@ -13,115 +15,187 @@ class TimelineRecords
   private
 
   def load_events
-    @events += @patient.audits.map do |audit|
+    event_sources.each do |source|
+      @events += send("#{source}_events")
+    end
+    @events.sort_by! { |event| event[:created_at] }
+  end
+
+  def event_sources
+    %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports cohort_imports]
+  end
+
+  def audits_events
+    @patient.audits.map do |audit|
       {
         event_type: audit.action,
         details: audit.audited_changes,
         created_at: audit.created_at
       }
     end
+  end
 
-    @events += @patient.consents.map do |consent|
+  def consents_events
+    @patient.consents.map do |consent|
       {
         event_type: 'consent',
-        details: "#{consent.id}, #{consent.response}, via #{consent.route}",
+        id: consent.id,
+        details: "#{consent.response}<br> via #{consent.route}",
         created_at: consent.created_at
       }
     end
+  end
 
-    @events += @patient.school_moves.map do |move|
+  def school_moves_events
+    @patient.school_moves.map do |move|
       {
         event_type: 'school_move',
-        details: "#{move.id}, to, #{Location.find(move.school_id).name}, due to, #{move.source}",
+        id: move.id,
+        details: "to<br> #{Location.find(move.school_id).name}<br> due to<br> #{move.source}",
         created_at: move.created_at
       }
     end
+  end
 
-    @events += @patient.patient_sessions.map do |session|
+  def school_move_log_entries_events
+    @patient.school_move_log_entries.map do |move|
+      {
+        event_type: 'school_move_log',
+        id: move.id,
+        details: "to<br> #{move.school_id.nil? ? patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
+         (move.user_id.nil? ? "" : "<br> performed by<br> User-#{move.user_id}")
+        created_at: move.created_at
+      }
+    end
+  end
+
+  def patient_sessions_events
+    @patient.patient_sessions.map do |session|
       {
         event_type: 'session',
-        details: "#{session.session_id}, #{Session.find(session.session_id).location.name}",
+        id: session.session_id,
+        details: "#{Session.find(session.session_id).location.name}",
         created_at: session.created_at
       }
     end
+  end
 
-    @events += @patient.triages.map do |triage|
+  def triages_events
+    @patient.triages.map do |triage|
       {
         event_type: 'triage',
-        details: "#{triage.id}, #{triage.status}, performed by, User-#{triage.user_id}",
+        id: triage.id,
+        details: "#{triage.status}<br> performed by<br> User-#{triage.performed_by_user_id}",
         created_at: triage.created_at
       }
     end
+  end
 
-    @events += @patient.vaccination_records.map do |vaccination|
+  def vaccination_records_events
+    @patient.vaccination_records.map do |vaccination|
       {
         event_type: 'vaccination',
-        details: "#{vaccination.id}, #{vaccination.outcome}, at, #{Session.find(vaccination.session_id).location.name}",
+        id: vaccination.id,
+        details: "#{vaccination.outcome}<br> at<br> #{Session.find(vaccination.session_id).location.name}",
         created_at: vaccination.created_at
       }
     end
+  end
 
-    @events += @patient.class_imports.map do |class_import|
+  def class_imports_events
+    @patient.class_imports.map do |class_import|
       {
         event_type: 'patient_class_import',
-        details: "#{class_import.id}, including patient",
+        id: class_import.id,
+        details: "including patient",
         created_at: class_import.created_at
       }
     end
+  end
 
-    @events += @patient.cohort_imports.map do |cohort_import|
+  def cohort_imports_events
+    @patient.cohort_imports.map do |cohort_import|
       {
         event_type: 'patient_cohort_import',
-        details: "#{cohort_import.id}, including patient",
+        id: cohort_import.id,
+        details: "including patient",
         created_at: cohort_import.created_at
       }
     end
-
-    @events.sort_by! { |event| event[:created_at] }
   end
 
   def format_timeline
-    timeline = ["timeline", "title Timeline for Patient-#{@patient_id}"]
+    timeline = ["%%{init: { 'logLevel': 'debug', 'theme': 'default' } }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
     current_date = nil
-  
-    @events.sort_by! { |event| event[:created_at] }
+    current_time = nil
+    stacked_events = []
   
     @events.each do |event|
       event_date = event[:created_at].strftime('%Y-%m-%d')
       event_time = event[:created_at].strftime('%H-%M-%S')
   
       if event_date != current_date
+        # Output any stacked events before starting a new section
+        unless stacked_events.empty?
+          timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
+          stacked_events.clear
+        end
+  
         timeline << "    section #{event_date}"
         current_date = event_date
       end
   
-      event_description = case event[:event_type]
-                          when 'create'
-                            "Created"
-                          when 'patient_class_import'
-                            "ClassImport-#{event[:details]}"
-                          when 'patient_cohort_import'
-                            "CohortImport-#{event[:details]}"
-                          when 'update'
-                            "Updated"
-                          when 'destroy'
-                            "Destroyed"
-                          when 'consent'
-                            "Consent-#{event[:details]}"
-                          when 'school_move'
-                            "Pending SchoolMove-#{event[:details]}"
-                          when 'session'
-                            "Added to, Session-#{event[:details]}"
-                          when 'triage'
-                            "Triage-#{event[:details]}"
-                          when 'vaccination'
-                            "Vaccination-#{event[:details]}"
-                          else
-                            "Event-#{event[:details]}"
-                          end
+      if event_time != current_time
+        # Output any stacked events before starting a new time
+        unless stacked_events.empty?
+          timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
+          stacked_events.clear
+        end
   
-      timeline << "        #{event_time} : #{event_description}"
-    end  
+        current_time = event_time
+      end
+  
+      event_description = format_event_description(event)
+      stacked_events << event_description
+    end
+  
+    # Output any remaining stacked events
+    unless stacked_events.empty?
+      timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
+    end
+  
     puts timeline.join("\n")
-  end   
+  end
+
+  def format_event_description(event)
+    case event[:event_type]
+    when 'create'
+      "Record created"
+    when 'patient_class_import'
+      "ClassImport-#{event[:id]}<br> #{event[:details]}"
+    when 'patient_cohort_import'
+      "CohortImport-#{event[:id]}<br> #{event[:details]}"
+    when 'update'
+      changes_description = event[:details].map do |key, (before, after)|
+        "#{key} from #{before.nil? ? 'nil' : before} to #{after.nil? ? 'nil' : after}" 
+      end.join('<br> ')
+      "Updated<br> #{changes_description}"
+    when 'school_move'
+      "Pending SchoolMove-#{event[:id]}<br> #{event[:details]}"
+    when 'school_move_log'
+      "SchoolMove-#{event[:id]}<br> #{event[:details]}"
+    when 'session'
+      "Added to<br> Session-#{event[:id]}<br> #{event[:details]}"
+    when 'consent'
+      "Consent-#{event[:id]}<br> #{event[:details]}"
+    when 'triage'
+      "Triage-#{event[:id]}<br> #{event[:details]}"
+    when 'vaccination'
+      "Vaccination-#{event[:id]}<br> #{event[:details]}"
+    when 'destroy'
+      "Record destroyed"
+    else
+      "Event-#{event[:id]}<br> #{event[:details]}"
+    end
+  end
 end
