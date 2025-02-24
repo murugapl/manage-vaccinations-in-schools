@@ -1,5 +1,5 @@
 <%= h1 page_title: @patient.initials do %>
-  <%= "Timeline for Patient-#{@patient.id}" %>
+  <%= "Inspect Patient-#{@patient.id}" %>
       <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
       mermaid.initialize({ startOnLoad: true });
@@ -8,7 +8,7 @@
   <% if @no_events_message %>
     <%= render AppWarningCalloutComponent.new(
       heading: "No events found",
-      description: "This patient doesn't have the following events recorded: " + 
+      description: "Patient-#{@patient.id} doesn't have the following events recorded: " + 
       "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
     ) %>
   <% else %>
@@ -16,14 +16,86 @@
       <%= @mermaid_code.html_safe %>
     </pre>
   <% end %>
-<div>
-  <%= render AppDetailsComponent.new(summary: "Filter timeline", expander: true, open: true ) do %>
+  <% if @invalid_patient_id %>
+    <%= render AppWarningCalloutComponent.new(
+      heading: "Invalid patient ID",
+      description: "Patient-#{params[:manual_patient_id]} doesn't exist"
+    ) %>
+  <% elsif @no_events_compare_message %>
+    <%= render AppWarningCalloutComponent.new(
+      heading: "No events found for comparison patient",
+      description: "Patient-#{@compare_patient.id} doesn't have the following events recorded: " + 
+      "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
+    ) %>
+  <% elsif @mermaid_compare_code %>
+    <pre class="mermaid">
+      <%= @mermaid_compare_code.html_safe %>
+    </pre>
+  <% end %>
+  <%= render AppDetailsComponent.new(summary: "Customise timeline", expander: true, open: true ) do %>
     <%= form_with url: inspect_timeline_patient_path, method: :get, local: true do |f| %>
       <div class="nhsuk-form-group">
-        <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Event names", size: "s" } do %>
+        <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Events to display:", size: "s" } do %>
           <% event_options.each do |value, text| %>
-      <%= f.govuk_check_box :event_names, value, label: { text: text }, checked: value.in?(params[:event_names] || []), "data-autosubmit-target": "field", "data-action": "autosubmit#submit", "data-turbo-permanent": "true" %>
-    <% end %>
+            <%= f.govuk_check_box :event_names, value, label: { text: text }, checked: value.in?(params[:event_names] || []), "data-autosubmit-target": "field", "data-action": "autosubmit#submit", "data-turbo-permanent": "true" %>
+          <% end %>
+        <% end %>
+      </div>
+      <div class="nhsuk-form-group">
+        <%= f.govuk_radio_buttons_fieldset :compare_option, legend: { text: "Compare with another patient:", size: "s" } do %>
+            <% if @patient_info[:class_imports].present? %>
+              <%= f.govuk_radio_button(
+                    :compare_option, 'class_import',
+                    label: { text: "from a Class Import" },
+                    checked: params[:compare_option] == 'class_import',
+                  ) do %>
+                    <% @patient_info[:class_imports].each do |import| %>
+                      <%= f.govuk_radio_button(
+                          :compare_option_class_import, import,
+                          label: { text: "ClassImport-#{import}" },
+                          checked: params[:compare_option_class_import] == import.to_s,
+                        )%>
+                    <% end %>
+              <% end %>
+            <% end %>
+            <% if @patient_info[:cohort_imports].present? %>
+              <%= f.govuk_radio_button(
+                    :compare_option, 'cohort_import',
+                    label: { text: "from a Cohort Import" },
+                    checked: params[:compare_option] == 'cohort_import',
+                  ) do %>
+                    <% @patient_info[:cohort_imports].each do |import| %>
+                      <%= f.govuk_radio_button(
+                          :compare_option_cohort_import, import,
+                          label: { text: "CohortImport-#{import}" },
+                          checked: params[:compare_option_cohort_import] == import.to_s,
+                        )%>
+                    <% end %>
+              <% end %>
+            <% end %>
+            <% if @patient_info[:sessions].present? %>
+              <%= f.govuk_radio_button(
+                    :compare_option, 'session',
+                    label: { text: "in a Session" },
+                    checked: params[:compare_option] == 'session',
+                  ) do %>
+                    <% @patient_info[:sessions].each do |session| %>
+                      <%= f.govuk_radio_button(
+                          :compare_option_session, session,
+                          label: { text: "Session-#{session}" },
+                          checked: params[:compare_option_session] == session.to_s,
+                        )%>
+                    <% end %>
+              <% end %>
+            <% end %>
+
+          <%= f.govuk_radio_button(
+                :compare_option, 'manual_entry',
+                label: { text: "with a specific Patient-ID" },
+                checked: params[:compare_option] == 'manual_entry',
+              ) do %>
+            <%= f.govuk_text_field :manual_patient_id, label: { text: "Patient ID", size: "s" }, hint: { text: "Enter the ID of the patient you want to compare with" } %>
+          <% end %>
         <% end %>
       </div>
       <%= f.govuk_submit "Reset filters", type: "reset",

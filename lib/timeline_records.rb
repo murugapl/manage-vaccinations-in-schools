@@ -128,7 +128,7 @@ cohort_imports]
   end
 
   def format_timeline
-    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline"]
+    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
     current_date = nil
     current_time = nil
     stacked_events = []
