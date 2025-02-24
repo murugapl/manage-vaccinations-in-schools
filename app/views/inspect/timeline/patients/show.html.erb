@@ -1,14 +1,40 @@
 <%= h1 page_title: @patient.initials do %>
-  <%= @patient.full_name %>
-  <script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({ startOnLoad: true });
-  </script>
-  <pre class="mermaid">
-    <%= @mermaid_code.html_safe %>
-  </pre>
-  <div>
-    <%= h @mermaid_code.html_safe %>
-  </div>
+  <%= "Timeline for Patient-#{@patient.id}" %>
+      <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true });
+    </script>
 
+  <% if @no_events_message %>
+    <%= render AppWarningCalloutComponent.new(
+      heading: "No events found",
+      description: "This patient doesn't have the following events recorded: " + 
+      "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
+    ) %>
+  <% else %>
+    <pre class="mermaid">
+      <%= @mermaid_code.html_safe %>
+    </pre>
+  <% end %>
+<div>
+  <%= render AppDetailsComponent.new(summary: "Filter timeline", expander: true, open: true ) do %>
+    <%= form_with url: inspect_timeline_patient_path, method: :get, local: true do |f| %>
+      <div class="nhsuk-form-group">
+        <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Event names", size: "s" } do %>
+          <% event_options.each do |value, text| %>
+      <%= f.govuk_check_box :event_names, value, label: { text: text }, checked: value.in?(params[:event_names] || []), "data-autosubmit-target": "field", "data-action": "autosubmit#submit", "data-turbo-permanent": "true" %>
+    <% end %>
+        <% end %>
+      </div>
+      <%= f.govuk_submit "Reset filters", type: "reset",
+                                          secondary: true,
+                                          "data-autosubmit-target": "reset",
+                                          "data-action": "autosubmit#submit",
+                                          "data-turbo-permanent": "true",
+                                          class: %w[nhsuk-u-display-block
+                                                    app-button--small] %>
+      <%= f.govuk_submit "Update timeline", "data-autosubmit-target": "filter",
+                                   "data-turbo-permanent": "true" %>
+    <% end %>
+  <% end %>
 <% end %>

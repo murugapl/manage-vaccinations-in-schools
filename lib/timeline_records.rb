@@ -7,22 +7,25 @@ class TimelineRecords
     @events = []
   end
 
-  def generate_timeline
-    load_events
+  def generate_timeline(*event_names)
+    load_events(event_names)
     format_timeline
   end
 
   private
 
-  def load_events
+  def load_events(event_names)
     event_sources.each do |source|
-      @events += send("#{source}_events")
+      if event_names.include?(source.to_s)
+        @events += send("#{source}_events")
+      end
     end
     @events.sort_by! { |event| event[:created_at] }
   end
 
   def event_sources
-    %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports cohort_imports]
+    %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports 
+cohort_imports]
   end
 
   def audits_events
@@ -62,7 +65,7 @@ class TimelineRecords
       {
         event_type: 'school_move_log',
         id: move.id,
-        details: "to<br> #{move.school_id.nil? ? patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
+        details: "to<br> #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
          (move.user_id.nil? ? "" : "<br> performed by<br> User-#{move.user_id}"),
         created_at: move.created_at
       }
@@ -74,7 +77,7 @@ class TimelineRecords
       {
         event_type: 'session',
         id: session.session_id,
-        details: "#{Session.find(session.session_id).location.name}",
+        details: Session.find(session.session_id).location.name.to_s,
         created_at: session.created_at
       }
     end
@@ -125,7 +128,7 @@ class TimelineRecords
   end
 
   def format_timeline
-    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
+    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline"]
     current_date = nil
     current_time = nil
     stacked_events = []
@@ -175,9 +178,9 @@ class TimelineRecords
     when 'patient_cohort_import'
       "CohortImport-#{event[:id]}<br> #{event[:details]}"
     when 'update'
-      changes_description = event[:details].map do |key, (before, after)|
+      changes_description = event[:details].map { |key, (before, after)|
         "#{key} from #{before.nil? ? 'nil' : before} to #{after.nil? ? 'nil' : after}" 
-      end.join('<br> ')
+      }.join('<br> ')
       "Updated<br> #{changes_description}"
     when 'school_move'
       "Pending SchoolMove-#{event[:id]}<br> #{event[:details]}"
