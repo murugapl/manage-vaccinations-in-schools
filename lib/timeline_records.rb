@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 class TimelineRecords
-  def initialize(patient_id)
+  def initialize(patient_id, patient_info, additional_events)
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
+    @patient_info = patient_info
+    @additional_events = additional_events
     @events = []
   end
 
@@ -17,15 +19,19 @@ class TimelineRecords
   def load_events(event_names)
     event_sources.each do |source|
       if event_names.include?(source.to_s)
-        @events += send("#{source}_events")
+          @events += send("#{source}_events")
       end
+    end
+    event_names.select { |event| event.start_with?('add_class_imports') }.each do |event|
+      session_id = event.split('_').last.to_i
+      @events += add_class_imports_events(session_id) if session_id.positive?
     end
     @events.sort_by! { |event| event[:created_at] }
   end
 
   def event_sources
     %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports 
-cohort_imports]
+cohort_imports org_cohort_imports]
   end
 
   def audits_events
@@ -54,7 +60,7 @@ cohort_imports]
       {
         event_type: 'school_move',
         id: move.id,
-        details: "to<br> #{Location.find(move.school_id).name}<br> due to<br> #{move.source}",
+        details: "to<br> #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}<br> due to<br> #{move.source}",
         created_at: move.created_at
       }
     end
@@ -73,7 +79,8 @@ cohort_imports]
   end
 
   def patient_sessions_events
-    @patient.patient_sessions.map do |session|
+    @patient_info[:sessions].map do |session_id|
+      session = PatientSession.find(session_id)
       {
         event_type: 'session',
         id: session.session_id,
@@ -106,7 +113,8 @@ cohort_imports]
   end
 
   def class_imports_events
-    @patient.class_imports.map do |class_import|
+    @patient_info[:class_imports].map do |class_import_id|
+      class_import = ClassImport.find(class_import_id)
       {
         event_type: 'patient_class_import',
         id: class_import.id,
@@ -117,7 +125,8 @@ cohort_imports]
   end
 
   def cohort_imports_events
-    @patient.cohort_imports.map do |cohort_import|
+    @patient_info[:cohort_imports] do |cohort_import_id|
+      cohort_import = CohortImport.find(cohort_import_id)
       {
         event_type: 'patient_cohort_import',
         id: cohort_import.id,
@@ -127,8 +136,33 @@ cohort_imports]
     end
   end
 
+  def org_cohort_imports_events
+    @additional_events[:cohort_imports].map do |cohort_import_id|
+      cohort_import = CohortImport.find(cohort_import_id)
+      {
+        event_type: 'patient_cohort_import',
+        id: cohort_import.id,
+        details: "excluding patient",
+        created_at: cohort_import.created_at
+      }
+    end
+  end
+
+  def add_class_imports_events(session_id)
+    @additional_events[:class_imports][session_id].map do |class_import_id|
+      class_import = ClassImport.find(class_import_id)
+      { 
+        event_type: 'patient_class_import',
+        id: class_import.id,
+        details: "excluding patient",
+        created_at: class_import.created_at.to_time
+      }
+    end
+  end
+
   def format_timeline
-    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", "title Timeline for Patient-#{@patient_id}"]
+    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", 
+"title Timeline for Patient-#{@patient_id}"]
     current_date = nil
     current_time = nil
     stacked_events = []

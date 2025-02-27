@@ -39,17 +39,31 @@
           <% event_options.each do |value, text| %>
             <%= f.govuk_check_box :event_names, value, label: { text: text }, checked: value.in?(params[:event_names] || []), "data-autosubmit-target": "field", "data-action": "autosubmit#submit", "data-turbo-permanent": "true" %>
           <% end %>
+          <%= f.govuk_check_box :event_names, "org_cohort_imports", 
+              label: { text: "Cohort Imports for Organisation-#{@patient.organisation.id} excluding Patient" }, 
+              checked: "org_cohort_imports".in?(params[:event_names] || []), 
+              "data-autosubmit-target": "field", 
+              "data-action": "autosubmit#submit", 
+              "data-turbo-permanent": "true" %>
+          <% (additional_events(@patient)[:class_imports]).each do |session_id, import_ids| %>
+              <%= f.govuk_check_box :event_names, "add_class_imports_#{session_id}", 
+                label: { text: "Class Imports for Session-#{session_id} excluding Patient" }, 
+                checked: "add_class_imports_#{session_id}".in?(params[:event_names] || []),
+                "data-autosubmit-target": "field", 
+                "data-action": "autosubmit#submit", 
+                "data-turbo-permanent": "true" %>
+            <% end %>
         <% end %>
       </div>
       <div class="nhsuk-form-group">
         <%= f.govuk_radio_buttons_fieldset :compare_option, legend: { text: "Compare with another patient:", size: "s" } do %>
-            <% if @patient_info[:class_imports].present? %>
+            <% if patient_info(@patient)[:class_imports].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'class_import',
                     label: { text: "from a Class Import" },
                     checked: params[:compare_option] == 'class_import',
                   ) do %>
-                    <% @patient_info[:class_imports].each do |import| %>
+                    <% patient_info(@patient)[:class_imports].each do |import| %>
                       <%= f.govuk_radio_button(
                           :compare_option_class_import, import,
                           label: { text: "ClassImport-#{import}" },
@@ -58,13 +72,13 @@
                     <% end %>
               <% end %>
             <% end %>
-            <% if @patient_info[:cohort_imports].present? %>
+            <% if patient_info(@patient)[:cohort_imports].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'cohort_import',
                     label: { text: "from a Cohort Import" },
                     checked: params[:compare_option] == 'cohort_import',
                   ) do %>
-                    <% @patient_info[:cohort_imports].each do |import| %>
+                    <% patient_info(@patient)[:cohort_imports].each do |import| %>
                       <%= f.govuk_radio_button(
                           :compare_option_cohort_import, import,
                           label: { text: "CohortImport-#{import}" },
@@ -73,13 +87,13 @@
                     <% end %>
               <% end %>
             <% end %>
-            <% if @patient_info[:sessions].present? %>
+            <% if patient_info(@patient)[:sessions].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'session',
                     label: { text: "in a Session" },
                     checked: params[:compare_option] == 'session',
                   ) do %>
-                    <% @patient_info[:sessions].each do |session| %>
+                    <% patient_info(@patient)[:sessions].each do |session| %>
                       <%= f.govuk_radio_button(
                           :compare_option_session, session,
                           label: { text: "Session-#{session}" },

@@ -5,15 +5,10 @@ module Inspect
   module Timeline
     class PatientsController < ApplicationController
       before_action :set_patient
-      helper_method :event_options
+      helper_method :event_options, :additional_events, :patient_info
       def set_patient
         @patient =
           policy_scope(Patient).find(params[:id])
-        @patient_info = {
-          class_imports: @patient.class_imports.map(&:id),
-          cohort_imports: @patient.cohort_imports.map(&:id),
-          sessions: @patient.patient_sessions.map(&:session_id)
-        }
       end
       
       def sample_patient(compare_option)
@@ -30,7 +25,7 @@ module Inspect
         when 'manual_entry'
           begin
             Patient.find(params[:manual_patient_id])
-          rescue Exception => e
+          rescue Exception
             true
           end
         end
@@ -42,18 +37,39 @@ module Inspect
           'school_moves' => 'School Moves',
           'school_move_log_entries' => 'School Move Log Entries',
           'audits' => 'Audits',
-          'patient_sessions' => 'Patient Sessions',
+          'patient_sessions' => 'Sessions',
           'triages' => 'Triages',
           'vaccination_records' => 'Vaccination Records',
           'class_imports' => 'Class Imports',
-          'cohort_imports' => 'Cohort Imports'
+          'cohort_imports' => 'Cohort Imports',
         }
       end
+
+      def additional_events(patient)
+        patient_imports = patient_info(patient)[:class_imports]
+        class_imports = ClassImport.where(session_id: patient_info(patient)[:sessions])
+        class_imports = class_imports.where.not(id: patient_imports) if patient_imports.present?
+        {
+          class_imports: class_imports.group_by(&:session_id).transform_values { |imports| imports.map(&:id) },
+          cohort_imports: patient.organisation.cohort_imports.reject { |ci|
+ patient_info(patient)[:cohort_imports].include?(ci.id) }.map(&:id)
+        }
+      end
+
+      def patient_info(patient)
+        {
+          class_imports: patient.class_imports.map(&:id),
+          cohort_imports: patient.cohort_imports.map(&:id),
+          sessions: patient.sessions.map(&:id)
+        }
+      end
+
       def show
         event_names = params[:event_names] || ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
 'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 'cohort_imports', 'vaccination_records']
         compare_option = params[:compare_option] || nil
-        mermaid = TimelineRecords.new(@patient.id).generate_timeline(*event_names)
+        mermaid = TimelineRecords.new(@patient.id, patient_info(@patient), 
+additional_events(@patient)).generate_timeline(*event_names)
         
         if mermaid.nil?
           @no_events_message = true
@@ -69,7 +85,8 @@ module Inspect
           @invalid_patient_id = true
         elsif @compare_patient
           # Generate timeline for the compare patient
-          mermaid_compare = TimelineRecords.new(@compare_patient.id).generate_timeline(*event_names)
+          mermaid_compare = TimelineRecords.new(@compare_patient.id, patient_info(@compare_patient), 
+additional_events(@compare_patient)).generate_timeline(*event_names)
           if mermaid_compare.nil?
             @no_events_compare_message = true
           else
