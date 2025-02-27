@@ -5,7 +5,11 @@ module Inspect
   module Timeline
     class PatientsController < ApplicationController
       before_action :set_patient
-      helper_method :event_options, :additional_events, :patient_info
+      helper_method :event_options, :additional_events, :patient_info, :reset_filters
+
+      DEFAULT_EVENT_NAMES = ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
+'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 'cohort_imports', 'vaccination_records']
+
       def set_patient
         @patient =
           policy_scope(Patient).find(params[:id])
@@ -65,6 +69,7 @@ module Inspect
       end
 
       def show
+        @default_events = DEFAULT_EVENT_NAMES
         event_names = params[:event_names] || ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
 'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 'cohort_imports', 'vaccination_records']
         compare_option = params[:compare_option] || nil

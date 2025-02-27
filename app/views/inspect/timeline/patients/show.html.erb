@@ -37,18 +37,23 @@
       <div class="nhsuk-form-group">
         <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Events to display:", size: "s" } do %>
           <% event_options.each do |value, text| %>
-            <%= f.govuk_check_box :event_names, value, label: { text: text }, checked: value.in?(params[:event_names] || []), "data-autosubmit-target": "field", "data-action": "autosubmit#submit", "data-turbo-permanent": "true" %>
+            <%= f.govuk_check_box :event_names, value, 
+            label: { text: text }, 
+            checked: value.in?(params[:event_names] || @default_events), 
+            "data-autosubmit-target": "field", 
+            "data-action": "autosubmit#submit", 
+            "data-turbo-permanent": "true" %>
           <% end %>
           <%= f.govuk_check_box :event_names, "org_cohort_imports", 
-              label: { text: "Cohort Imports for Organisation-#{@patient.organisation.id} excluding Patient" }, 
-              checked: "org_cohort_imports".in?(params[:event_names] || []), 
-              "data-autosubmit-target": "field", 
-              "data-action": "autosubmit#submit", 
-              "data-turbo-permanent": "true" %>
+            label: { text: "Cohort Imports for Organisation-#{@patient.organisation.id} excluding Patient" }, 
+            checked: "org_cohort_imports".in?(params[:event_names] || @default_events), 
+            "data-autosubmit-target": "field", 
+            "data-action": "autosubmit#submit", 
+            "data-turbo-permanent": "true" %>
           <% (additional_events(@patient)[:class_imports]).each do |session_id, import_ids| %>
               <%= f.govuk_check_box :event_names, "add_class_imports_#{session_id}", 
                 label: { text: "Class Imports for Session-#{session_id} excluding Patient" }, 
-                checked: "add_class_imports_#{session_id}".in?(params[:event_names] || []),
+                checked: "add_class_imports_#{session_id}".in?(params[:event_names] || @default_events),
                 "data-autosubmit-target": "field", 
                 "data-action": "autosubmit#submit", 
                 "data-turbo-permanent": "true" %>
