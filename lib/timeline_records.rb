@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 class TimelineRecords
-  def initialize(patient_id, patient_info, additional_events)
+  def initialize(patient_id, patient_events, additional_events)
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
-    @patient_info = patient_info
+    @patient_events = patient_events
     @additional_events = additional_events
     @events = []
   end
@@ -79,7 +79,7 @@ cohort_imports org_cohort_imports]
   end
 
   def patient_sessions_events
-    @patient_info[:sessions].map do |session_id|
+    @patient_events[:sessions].map do |session_id|
       session = Session.find(session_id)
       {
         event_type: 'session',
@@ -113,7 +113,7 @@ cohort_imports org_cohort_imports]
   end
 
   def class_imports_events
-    @patient_info[:class_imports].map do |class_import_id|
+    @patient_events[:class_imports].map do |class_import_id|
       class_import = ClassImport.find(class_import_id)
       {
         event_type: 'patient_class_import',
@@ -125,7 +125,7 @@ cohort_imports org_cohort_imports]
   end
 
   def cohort_imports_events
-    @patient_info[:cohort_imports] do |cohort_import_id|
+    @patient_events[:cohort_imports] do |cohort_import_id|
       cohort_import = CohortImport.find(cohort_import_id)
       {
         event_type: 'patient_cohort_import',

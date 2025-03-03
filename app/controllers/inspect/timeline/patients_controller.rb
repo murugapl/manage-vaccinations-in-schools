@@ -14,7 +14,7 @@ module Inspect
       def set_patient
         @patient =
           policy_scope(Patient).find(params[:id])
-        @patient_info = patient_info(@patient)
+        @patient_events = patient_events(@patient)
         @additional_events = additional_events(@patient)
       end
       
@@ -55,20 +55,20 @@ module Inspect
       end
 
       def additional_events(patient)
-        patient_imports = patient_info(patient)[:class_imports]
-        class_imports = ClassImport.where(session_id: patient_info(patient)[:sessions])
+        patient_imports = patient_events(patient)[:class_imports]
+        class_imports = ClassImport.where(session_id: patient_events(patient)[:sessions])
         class_imports = class_imports.where.not(id: patient_imports) if patient_imports.present?
         {
           class_imports: class_imports.group_by(&:session_id).transform_values { |imports| imports.map(&:id) },
           cohort_imports: patient.organisation.cohort_imports
                             .reject { 
-                              |ci| patient_info(patient)[:cohort_imports].include?(ci.id) 
+                              |ci| patient_events(patient)[:cohort_imports].include?(ci.id) 
                             }
                             .map(&:id)
         }
       end
 
-      def patient_info(patient)
+      def patient_events(patient)
         {
           class_imports: patient.class_imports.map(&:id),
           cohort_imports: patient.cohort_imports.map(&:id),
@@ -87,7 +87,7 @@ module Inspect
         mermaid = TimelineRecords
                     .new(
                       @patient.id, 
-                      @patient_info, 
+                      @patient_events, 
                       @additional_events
                       )
                       .generate_timeline(
@@ -111,7 +111,7 @@ module Inspect
           mermaid_compare = TimelineRecords
                               .new(
                                 @compare_patient.id, 
-                                patient_info(@compare_patient), 
+                                patient_events(@compare_patient), 
                                 additional_events(@compare_patient)
                                 )
                                 .generate_timeline(

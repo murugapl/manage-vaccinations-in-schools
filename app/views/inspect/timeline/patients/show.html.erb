@@ -84,13 +84,13 @@
               checked: params[:compare_option].blank?
             ) %>
 
-            <% if @patient_info[:class_imports].present? %>
+            <% if @patient_events[:class_imports].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'class_import',
                     label: { text: "from a Class Import" },
                     checked: params[:compare_option] == 'class_import',
                   ) do %>
-                    <% @patient_info[:class_imports].each do |import| %>
+                    <% @patient_events[:class_imports].each do |import| %>
                       <%= f.govuk_radio_button(
                           :compare_option_class_import, import,
                           label: { text: "ClassImport-#{import}" },
@@ -100,13 +100,13 @@
               <% end %>
             <% end %>
 
-            <% if @patient_info[:cohort_imports].present? %>
+            <% if @patient_events[:cohort_imports].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'cohort_import',
                     label: { text: "from a Cohort Import" },
                     checked: params[:compare_option] == 'cohort_import',
                   ) do %>
-                    <% @patient_info[:cohort_imports].each do |import| %>
+                    <% @patient_events[:cohort_imports].each do |import| %>
                       <%= f.govuk_radio_button(
                           :compare_option_cohort_import, import,
                           label: { text: "CohortImport-#{import}" },
@@ -116,13 +116,13 @@
               <% end %>
             <% end %>
 
-            <% if @patient_info[:sessions].present? %>
+            <% if @patient_events[:sessions].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'session',
                     label: { text: "in a Session" },
                     checked: params[:compare_option] == 'session',
                   ) do %>
-                    <% @patient_info[:sessions].each do |session| %>
+                    <% @patient_events[:sessions].each do |session| %>
                       <%= f.govuk_radio_button(
                           :compare_option_session, session,
                           label: { text: "Session-#{session}" },

@@ -49,7 +49,7 @@ describe Inspect::Timeline::PatientsController do
     end
   end
 
-  describe "#patient_info" do
+  describe "#patient_events" do
     let(:programme) { create(:programme) }
     let(:session) { create(:session, programme:) }
     let(:patient) do
@@ -70,20 +70,20 @@ describe Inspect::Timeline::PatientsController do
 
     context "with class imports" do
       it "returns a hash with class imports, cohort imports, and sessions" do
-        result = described_class.new.patient_info(patient)
+        result = described_class.new.patient_events(patient)
         expect(result).to be_a(Hash)
         expect(result.keys).to eq([:class_imports, :cohort_imports, :sessions])
       end
 
       it "returns an array of class import IDs" do
-        result = described_class.new.patient_info(patient)
+        result = described_class.new.patient_events(patient)
         expect(result[:class_imports]).to eq(class_imports.map(&:id))
       end
     end
 
     context "with cohort imports" do
       it "returns an array of cohort import IDs" do
-        result = described_class.new.patient_info(patient)
+        result = described_class.new.patient_events(patient)
         expect(result[:cohort_imports]).to eq(cohort_imports.map(&:id))
       end
     end

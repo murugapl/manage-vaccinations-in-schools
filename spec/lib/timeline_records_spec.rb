@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 describe TimelineRecords do
-  subject(:timeline) { described_class.new(patient.id, patient_info, additional_events) } #TODO: Make test setup leaner
+  subject(:timeline) { described_class.new(patient.id, patient_events, additional_events) } #TODO: Make test setup leaner
 
   let!(:programme) { create(:programme, :hpv) }
   let!(:organisation) { create(:organisation, programmes: [programme]) }
   let!(:session) { create(:session, organisation:, programmes: [programme]) }
   let!(:class_import) { create(:class_import, session:) }
   let!(:patient) { create(:patient, sessions: [session], class_imports: [class_import], organisation: organisation) }
-  let(:patient_info) { { class_imports: [class_import.id], cohort_imports: [], sessions: [session.id] } }
+  let(:patient_events) { { class_imports: [class_import.id], cohort_imports: [], sessions: [session.id] } }
   let(:additional_events) { { class_imports: { session.id => [class_import.id] }, cohort_imports: [] } }
 
   before do
