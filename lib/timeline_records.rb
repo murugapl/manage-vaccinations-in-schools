@@ -80,11 +80,11 @@ cohort_imports org_cohort_imports]
 
   def patient_sessions_events
     @patient_info[:sessions].map do |session_id|
-      session = PatientSession.find(session_id)
+      session = Session.find(session_id)
       {
         event_type: 'session',
-        id: session.session_id,
-        details: Session.find(session.session_id).location.name.to_s,
+        id: session_id,
+        details: session.location.name.to_s,
         created_at: session.created_at
       }
     end
@@ -161,8 +161,7 @@ cohort_imports org_cohort_imports]
   end
 
   def format_timeline
-    timeline = ["%%{init: {\"flowchart\": {\"htmlLabels\": false}} }%%", "timeline", 
-"title Timeline for Patient-#{@patient_id}"]
+    timeline = ["timeline", "title Timeline for Patient-#{@patient_id}"]
     current_date = nil
     current_time = nil
     stacked_events = []

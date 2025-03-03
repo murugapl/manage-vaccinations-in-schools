@@ -5,14 +5,17 @@ module Inspect
   module Timeline
     class PatientsController < ApplicationController
       before_action :set_patient
-      helper_method :event_options, :additional_events, :patient_info, :reset_filters
+      helper_method :event_options, :reset_filters
 
       DEFAULT_EVENT_NAMES = ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
-'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 'cohort_imports', 'vaccination_records']
+                            'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 
+                            'cohort_imports', 'vaccination_records'].freeze
 
       def set_patient
         @patient =
           policy_scope(Patient).find(params[:id])
+        @patient_info = patient_info(@patient)
+        @additional_events = additional_events(@patient)
       end
       
       def sample_patient(compare_option)
@@ -29,9 +32,11 @@ module Inspect
         when 'manual_entry'
           begin
             Patient.find(params[:manual_patient_id])
-          rescue Exception
-            true
+          rescue ActiveRecord::RecordNotFound
+            return :invalid_patient
           end
+        else
+          nil
         end
       end
 
@@ -55,8 +60,11 @@ module Inspect
         class_imports = class_imports.where.not(id: patient_imports) if patient_imports.present?
         {
           class_imports: class_imports.group_by(&:session_id).transform_values { |imports| imports.map(&:id) },
-          cohort_imports: patient.organisation.cohort_imports.reject { |ci|
- patient_info(patient)[:cohort_imports].include?(ci.id) }.map(&:id)
+          cohort_imports: patient.organisation.cohort_imports
+                            .reject { 
+                              |ci| patient_info(patient)[:cohort_imports].include?(ci.id) 
+                            }
+                            .map(&:id)
         }
       end
 
@@ -69,14 +77,24 @@ module Inspect
       end
 
       def show
-        @default_events = DEFAULT_EVENT_NAMES
-        event_names = params[:event_names] || ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
-'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 'cohort_imports', 'vaccination_records']
+        # Merge default values into the query parameters if they aren’t present.
+        defaults = DEFAULT_EVENT_NAMES
+        params.reverse_merge!(event_names: defaults)
+
+        event_names = params[:event_names]
         compare_option = params[:compare_option] || nil
-        mermaid = TimelineRecords.new(@patient.id, patient_info(@patient), 
-additional_events(@patient)).generate_timeline(*event_names)
+
+        mermaid = TimelineRecords
+                    .new(
+                      @patient.id, 
+                      @patient_info, 
+                      @additional_events
+                      )
+                      .generate_timeline(
+                        *event_names
+                        )
         
-        if mermaid.nil?
+        if mermaid.blank?
           @no_events_message = true
         else
           @mermaid_code = mermaid.join("\n")
@@ -86,20 +104,26 @@ additional_events(@patient)).generate_timeline(*event_names)
           @compare_patient = sample_patient(params[:compare_option])
         end
 
-        if @compare_patient == true
+        if @compare_patient == :invalid_patient
           @invalid_patient_id = true
         elsif @compare_patient
           # Generate timeline for the compare patient
-          mermaid_compare = TimelineRecords.new(@compare_patient.id, patient_info(@compare_patient), 
-additional_events(@compare_patient)).generate_timeline(*event_names)
-          if mermaid_compare.nil?
+          mermaid_compare = TimelineRecords
+                              .new(
+                                @compare_patient.id, 
+                                patient_info(@compare_patient), 
+                                additional_events(@compare_patient)
+                                )
+                                .generate_timeline(
+                                  *event_names
+                                  )
+
+          if mermaid_compare.blank?
             @no_events_compare_message = true
           else
             @mermaid_compare_code = mermaid_compare.join("\n")
           end
         end
-        
-        render template: 'inspect/timeline/patients/show'
       end
     end
   end
