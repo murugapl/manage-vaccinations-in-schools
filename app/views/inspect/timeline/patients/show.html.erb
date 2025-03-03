@@ -78,6 +78,12 @@
       <div class="nhsuk-form-group">
         <%= f.govuk_radio_buttons_fieldset :compare_option, legend: { text: "Compare with another patient:", size: "s" } do %>
 
+            <%= f.govuk_radio_button(
+              :compare_option, nil,
+              label: { text: "do not compare" },
+              checked: params[:compare_option].blank?
+            ) %>
+
             <% if @patient_info[:class_imports].present? %>
               <%= f.govuk_radio_button(
                     :compare_option, 'class_import',
@@ -133,7 +139,7 @@
               ) do %>
             <%= f.govuk_text_field :manual_patient_id, label: { text: "Patient ID", size: "s" }, hint: { text: "Enter the ID of the patient you want to compare with" } %>
           <% end %>
-          
+
         <% end %>
       </div>
 
