@@ -14,8 +14,9 @@ module Inspect
       def set_patient
         @patient =
           policy_scope(Patient).find(params[:id])
-        @patient_events = patient_events(@patient)
-        @additional_events = additional_events(@patient)
+        @patient_timeline = TimelineRecords.new(@patient.id)
+        @patient_events = @patient_timeline.patient_events(@patient)
+        @additional_events = @patient_timeline.additional_events(@patient)
       end
       
       def sample_patient(compare_option)
@@ -54,28 +55,6 @@ module Inspect
         }
       end
 
-      def additional_events(patient)
-        patient_imports = patient_events(patient)[:class_imports]
-        class_imports = ClassImport.where(session_id: patient_events(patient)[:sessions])
-        class_imports = class_imports.where.not(id: patient_imports) if patient_imports.present?
-        {
-          class_imports: class_imports.group_by(&:session_id).transform_values { |imports| imports.map(&:id) },
-          cohort_imports: patient.organisation.cohort_imports
-                            .reject { 
-                              |ci| patient_events(patient)[:cohort_imports].include?(ci.id) 
-                            }
-                            .map(&:id)
-        }
-      end
-
-      def patient_events(patient)
-        {
-          class_imports: patient.class_imports.map(&:id),
-          cohort_imports: patient.cohort_imports.map(&:id),
-          sessions: patient.sessions.map(&:id)
-        }
-      end
-
       def show
         # Merge default values into the query parameters if they aren’t present.
         defaults = DEFAULT_EVENT_NAMES
@@ -84,15 +63,10 @@ module Inspect
         event_names = params[:event_names]
         compare_option = params[:compare_option] || nil
 
-        mermaid = TimelineRecords
-                    .new(
-                      @patient.id, 
-                      @patient_events, 
-                      @additional_events
+        mermaid = @patient_timeline
+                    .generate_timeline(
+                      *event_names
                       )
-                      .generate_timeline(
-                        *event_names
-                        )
         
         if mermaid.blank?
           @no_events_message = true
@@ -110,9 +84,7 @@ module Inspect
           # Generate timeline for the compare patient
           mermaid_compare = TimelineRecords
                               .new(
-                                @compare_patient.id, 
-                                patient_events(@compare_patient), 
-                                additional_events(@compare_patient)
+                                @compare_patient.id
                                 )
                                 .generate_timeline(
                                   *event_names

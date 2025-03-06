@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 class TimelineRecords
-  def initialize(patient_id, patient_events, additional_events)
+  def initialize(patient_id)
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
-    @patient_events = patient_events
-    @additional_events = additional_events
+    @patient_events = patient_events(@patient)
+    @additional_events = additional_events(@patient)
     @events = []
   end
 
@@ -14,12 +14,34 @@ class TimelineRecords
     format_timeline
   end
 
+  def additional_events(patient)
+    patient_imports = patient_events(patient)[:class_imports]
+    class_imports = ClassImport.where(session_id: patient_events(patient)[:sessions])
+    class_imports = class_imports.where.not(id: patient_imports) if patient_imports.present?
+    {
+      class_imports: class_imports.group_by(&:session_id).transform_values { |imports| imports.map(&:id) },
+      cohort_imports: patient.organisation.cohort_imports
+                        .reject { 
+                          |ci| patient_events(patient)[:cohort_imports].include?(ci.id) 
+                        }
+                        .map(&:id)
+    }
+  end
+
+  def patient_events(patient)
+  {
+    class_imports: patient.class_imports.map(&:id),
+    cohort_imports: patient.cohort_imports.map(&:id),
+    sessions: patient.sessions.map(&:id)
+  }
+  end
+
   private
 
   def load_events(event_names)
     event_sources.each do |source|
       if event_names.include?(source.to_s)
-          @events += send("#{source}_events")
+        @events += respond_to?("#{source}_events", true) ? send("#{source}_events") : generic_events(source.to_s)
       end
     end
     event_names.select { |event| event.start_with?('add_class_imports') }.each do |event|
@@ -32,6 +54,20 @@ class TimelineRecords
   def event_sources
     %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports 
 cohort_imports org_cohort_imports]
+  end
+
+  def generic_events(event)
+    events = @patient.send(event)
+    return [] if events.nil?
+
+    events.map do |e|
+      {
+        event_type: "generic",
+        id: e.id,
+        details: event.to_s,
+        created_at: e.created_at
+      }
+    end
   end
 
   def audits_events
@@ -49,7 +85,7 @@ cohort_imports org_cohort_imports]
       {
         event_type: 'consent',
         id: consent.id,
-        details: "#{consent.response}<br> via #{consent.route}",
+        details: "#{consent.response} via #{consent.route}",
         created_at: consent.created_at
       }
     end
@@ -60,7 +96,7 @@ cohort_imports org_cohort_imports]
       {
         event_type: 'school_move',
         id: move.id,
-        details: "to<br> #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}<br> due to<br> #{move.source}",
+        details: "to #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name} due to #{move.source}",
         created_at: move.created_at
       }
     end
@@ -71,8 +107,8 @@ cohort_imports org_cohort_imports]
       {
         event_type: 'school_move_log',
         id: move.id,
-        details: "to<br> #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
-         (move.user_id.nil? ? "" : "<br> performed by<br> User-#{move.user_id}"),
+        details: "to #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
+         (move.user_id.nil? ? "" : " performed by User-#{move.user_id}"),
         created_at: move.created_at
       }
     end
@@ -95,7 +131,7 @@ cohort_imports org_cohort_imports]
       {
         event_type: 'triage',
         id: triage.id,
-        details: "#{triage.status}<br> performed by<br> User-#{triage.performed_by_user_id}",
+        details: "#{triage.status} performed by User-#{triage.performed_by_user_id}",
         created_at: triage.created_at
       }
     end
@@ -106,7 +142,7 @@ cohort_imports org_cohort_imports]
       {
         event_type: 'vaccination',
         id: vaccination.id,
-        details: "#{vaccination.outcome}<br> at<br> #{Session.find(vaccination.session_id).location.name}",
+        details: "#{vaccination.outcome} at #{Session.find(vaccination.session_id).location.name}",
         created_at: vaccination.created_at
       }
     end
@@ -207,30 +243,32 @@ cohort_imports org_cohort_imports]
     when 'create'
       "Record created"
     when 'patient_class_import'
-      "ClassImport-#{event[:id]}<br> #{event[:details]}"
+      "ClassImport-#{event[:id]} #{event[:details]}"
     when 'patient_cohort_import'
-      "CohortImport-#{event[:id]}<br> #{event[:details]}"
+      "CohortImport-#{event[:id]} #{event[:details]}"
     when 'update'
       changes_description = event[:details].map { |key, (before, after)|
         "#{key} from #{before.nil? ? 'nil' : before} to #{after.nil? ? 'nil' : after}" 
-      }.join('<br> ')
-      "Updated<br> #{changes_description}"
+      }.join(' ')
+      "Updated #{changes_description}"
     when 'school_move'
-      "Pending SchoolMove-#{event[:id]}<br> #{event[:details]}"
+      "Pending SchoolMove-#{event[:id]} #{event[:details]}"
     when 'school_move_log'
-      "SchoolMove-#{event[:id]}<br> #{event[:details]}"
+      "SchoolMove-#{event[:id]} #{event[:details]}"
     when 'session'
-      "Added to<br> Session-#{event[:id]}<br> #{event[:details]}"
+      "Added to Session-#{event[:id]} #{event[:details]}"
     when 'consent'
-      "Consent-#{event[:id]}<br> #{event[:details]}"
+      "Consent-#{event[:id]} #{event[:details]}"
     when 'triage'
-      "Triage-#{event[:id]}<br> #{event[:details]}"
+      "Triage-#{event[:id]} #{event[:details]}"
     when 'vaccination'
-      "Vaccination-#{event[:id]}<br> #{event[:details]}"
+      "Vaccination-#{event[:id]} #{event[:details]}"
     when 'destroy'
       "Record destroyed"
+    when 'generic'
+      "#{event[:details]}-#{event[:id]}"
     else
-      "Event-#{event[:id]}<br> #{event[:details]}"
+      "Event-#{event[:id]} #{event[:details]}"
     end
   end
 end
