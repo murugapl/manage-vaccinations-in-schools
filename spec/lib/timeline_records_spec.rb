@@ -20,6 +20,8 @@ describe TimelineRecords do
   describe '#load_add_class_imports_events' do
     before do
       patient.sessions << session
+      additional_events = { class_imports: { session.id => [class_import_additional.id] } }
+      timeline.instance_variable_set(:@additional_events, additional_events)
     end
 
     it 'returns an array of events' do
@@ -32,21 +34,23 @@ describe TimelineRecords do
       expect(events.size).to eq 1
       event = events.first
       expect(event[:event_type]).to eq 'patient_class_import'
-      expect(event[:id]).to eq class_import.id
+      expect(event[:id]).to eq class_import_additional.id
       expect(event[:details]).to eq 'excluding patient'
-      expect(event[:created_at]).to eq class_import.created_at
+      expect(event[:created_at]).to eq class_import_additional.created_at
     end
 
     it 'handles multiple additional class imports' do
-      class_import additional_2 = create(:class_import, session:, created_at: 1.minute.from_now)
-      session.class_imports << class_import_additional_2
+      another_additional_class_import = create(:class_import, session:, created_at: 1.minute.from_now)
+      additional_events = { class_imports: { session.id => [class_import_additional.id, another_additional_class_import.id] } }
+      timeline.instance_variable_set(:@additional_events, additional_events)
       events = timeline.send(:load_events, ["add_class_imports_#{session.id}"])
       expect(events.size).to eq 2
-      expect(events.map { |event| event[:id] }).to contain_exactly(class_import.id, another_class_import.id)
+      expect(events.map { |event| event[:id] }).to contain_exactly(class_import_additional.id, another_additional_class_import.id)
     end
 
     it 'handles no additional class imports' do
-      session.class_imports = [class_import] #no import excluding patient
+      additional_events = { class_imports: { session.id => [] } }
+      timeline.instance_variable_set(:@additional_events, additional_events)
       events = timeline.send(:load_events, ["add_class_imports_#{session.id}"])
       expect(events).to be_empty
     end
@@ -58,15 +62,13 @@ describe TimelineRecords do
   end
 
   describe "#additional_events" do
-    let(:class_imports_with_patient) { create_list(:class_import, 2, session: session) }
-    let(:class_imports_without_patient) { create_list(:class_import, 1, session: session) }
     let(:cohort_imports_with_patient) { create_list(:cohort_import, 2, organisation: session.organisation) }
     let(:cohort_imports_without_patient) { create_list(:cohort_import, 1, organisation: session.organisation) }
 
     before do
-      class_imports_without_patient.map { |class_import| class_import.session_id = session.id }
+      class_import_additional.session_id = session.id
       patient.sessions << session
-      patient.class_imports = class_imports_with_patient
+      patient.class_imports = [class_import]
       patient.cohort_imports = cohort_imports_with_patient
       patient.organisation.cohort_imports = cohort_imports_with_patient + cohort_imports_without_patient
     end
@@ -82,7 +84,7 @@ describe TimelineRecords do
         result = timeline.additional_events(patient)
         expect(result[:class_imports]).to be_a(Hash)
         expect(result[:class_imports].keys).to eq([session.id])
-        expect(result[:class_imports][session.id]).to eq(class_imports_without_patient.map(&:id))
+        expect(result[:class_imports][session.id]).to eq([class_import_additional.id])
       end
     end
 
