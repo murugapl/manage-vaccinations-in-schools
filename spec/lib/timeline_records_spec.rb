@@ -161,7 +161,7 @@ describe TimelineRecords do
         timeline.send(:load_events, ["add_class_imports_#{session.id}"])
         expect(timeline.instance_variable_get(:@events).size).to eq 1
         event = timeline.instance_variable_get(:@events).first
-        expect(event[:event_type]).to eq 'patient_class_import'
+        expect(event[:event_type]).to eq 'class_import'
         expect(event[:id]).to eq class_import_additional.id
         expect(event[:details]).to eq 'excluding patient'
       end
@@ -170,7 +170,7 @@ describe TimelineRecords do
         timeline.send(:load_events, ["org_cohort_imports"])
         expect(timeline.instance_variable_get(:@events).size).to eq 1
         event = timeline.instance_variable_get(:@events).first
-        expect(event[:event_type]).to eq 'patient_cohort_import'
+        expect(event[:event_type]).to eq 'cohort_import'
         expect(event[:id]).to eq cohort_import_additional.id
         expect(event[:details]).to eq 'excluding patient'
       end

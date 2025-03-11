@@ -100,7 +100,7 @@ class TimelineRecords
     @additional_events[:cohort_imports].map do |cohort_import_id|
       cohort_import = CohortImport.find(cohort_import_id)
       {
-        event_type: 'patient_cohort_import',
+        event_type: 'cohort_import',
         id: cohort_import.id,
         details: "excluding patient",
         created_at: cohort_import.created_at
@@ -112,7 +112,7 @@ class TimelineRecords
     @additional_events[:class_imports][session_id.to_i].map do |class_import_id|
       class_import = ClassImport.find(class_import_id)
       { 
-        event_type: 'patient_class_import',
+        event_type: 'class_import',
         id: class_import.id,
         details: "excluding patient",
         created_at: class_import.created_at.to_time
@@ -163,8 +163,8 @@ class TimelineRecords
   end
 
   def format_event_description(event)
-    details_string = event[:details].map { |key, value| "#{key}; #{value}" }.join("<br>")
-    "#{event[:event_type]}-#{event[:id]}<br>#{details_string}"
+    details_string = event[:details].is_a?(Hash) ? event[:details].map { |key, value| "#{key}; #{value}" }.join("<br> ") : event[:details]
+    "#{event[:event_type]}-#{event[:id]}<br> #{details_string}"
   end
 
   def format_timeline_json
