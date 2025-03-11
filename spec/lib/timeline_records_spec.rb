@@ -3,7 +3,10 @@ describe TimelineRecords do
   let(:organisation) { create(:organisation, programmes: [programme]) }
   let(:session) { create(:session, organisation:, programmes: [programme]) }
   let(:class_import) { create(:class_import, session:) }
+  let(:cohort_import) { create(:cohort_import, organisation:) }
+  let(:cohort_import_additional) { create(:cohort_import, organisation:) }
   let(:class_import_additional) { create(:class_import, session:) }
+  let(:user) { create(:user) }
   let(:patient) do
     create(
       :patient,
@@ -14,12 +17,169 @@ describe TimelineRecords do
       organisation: organisation,
     )
   end
+  let(:school_move) { create(:school_move, :to_school, patient: patient) }
+  let(:school_move_log_entry) { create(:school_move_log_entry, patient: patient) }
   let(:patient_session) { create(:patient_session, patient: patient, session: session) }
-  subject(:timeline) { described_class.new(patient.id) }
+  let(:triage) { create(
+    :triage, 
+    patient: patient, 
+    programme:, 
+    status: :ready_to_vaccinate, 
+    performed_by: user
+    ) }
+  let(:consent) { create(
+    :consent, 
+    patient: patient, 
+    response: :given, 
+    programme:, 
+    created_at: Date.new(2025, 1, 1)
+    ) }
+  let(:vaccination_record) { create(
+    :vaccination_record,
+    patient:,
+    programme:,
+    session:,
+    performed_at: Time.zone.local(2025, 2, 1)
+    ) }
+  subject(:timeline) { described_class.new(patient.id, detail_config: detail_config) }
+
+  let(:detail_config) { {} }
+
+  describe '#load_events' do
+
+    before do
+      patient.triages << triage
+      patient.consents << consent
+      patient.sessions << session
+      patient.school_moves << school_move
+      patient.school_move_log_entries << school_move_log_entry
+      patient.vaccination_records << vaccination_record
+      patient.cohort_imports << cohort_import
+    end
+
+    context 'with default details configuration' do
+
+      it 'loads consent events with default fields' do
+        timeline.send(:load_events, ['consents'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Consents'
+        expect(event[:details]).to eq "<br>Response; #{consent.response} <br>Route; #{consent.route}"
+      end
+
+      it 'loads triage events with default fields' do
+        timeline.send(:load_events, ['triages'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Triages'
+        expect(event[:details]).to eq "<br>Status; #{triage.status} <br>Performed_by_user_id; #{user.id}"
+      end
+  
+      it 'loads cohort_import events with default fields' do
+        timeline.send(:load_events, ['cohort_imports'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Cohort_imports'
+        expect(event[:details]).to eq ''
+      end
+  
+      it 'loads class_import events with default fields' do
+        timeline.send(:load_events, ['class_imports'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Class_imports'
+        expect(event[:details]).to eq ''
+      end
+  
+      it 'loads session events with default fields' do
+        timeline.send(:load_events, ['sessions'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Sessions'
+        expect(event[:details]).to eq "<br>Location_id; #{session.location_id}"
+      end
+  
+      it 'loads school_move events with default fields' do
+        timeline.send(:load_events, ['school_moves'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'School_moves'
+        expect(event[:details]).to eq "<br>School_id; #{school_move.school_id} <br>Source; #{school_move.source}"
+      end
+  
+      it 'loads school_move_log_entry events with default fields' do
+        timeline.send(:load_events, ['school_move_log_entries'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'School_move_log_entries'
+        expect(event[:details]).to eq "<br>School_id; #{school_move_log_entry.school_id} <br>User_id; #{school_move_log_entry.user_id}"
+      end
+  
+      it 'loads vaccination events with default fields' do
+        timeline.send(:load_events, ['vaccination_records'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Vaccination_records'
+        expect(event[:details]).to eq "<br>Outcome; #{vaccination_record.outcome} <br>Session_id; #{vaccination_record.session_id}"
+      end
+    end
+
+    context 'with custom details configuration' do
+      let(:detail_config) { { consents: %i[route], triages: %i[status] } }
+
+      before do
+        patient.consents << consent
+        patient.triages << triage
+      end
+
+      it 'loads consent events with custom fields' do
+        timeline.send(:load_events, ['consents'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Consents'
+        expect(event[:details]).to eq "<br>Route; #{consent.route}"
+      end
+
+      it 'loads triage events with custom fields' do
+        timeline.send(:load_events, ['triages'])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'Triages'
+        expect(event[:details]).to eq "<br>Status; #{triage.status}"
+      end
+    end
+
+    context 'with custom event handler' do
+      before do
+        patient.sessions = [session]
+        patient.cohort_imports = [cohort_import]
+        additional_events = { class_imports: { session.id => [class_import_additional.id] }, cohort_imports: [cohort_import_additional.id] }
+        timeline.instance_variable_set(:@additional_events, additional_events)
+      end
+
+      it 'calls custom event handler for add_class_imports' do
+        timeline.send(:load_events, ["add_class_imports_#{session.id}"])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'patient_class_import'
+        expect(event[:id]).to eq class_import_additional.id
+        expect(event[:details]).to eq 'excluding patient'
+      end
+
+      it 'calls custom event handler for org_cohort_imports' do
+        timeline.send(:load_events, ["org_cohort_imports"])
+        expect(timeline.instance_variable_get(:@events).size).to eq 1
+        event = timeline.instance_variable_get(:@events).first
+        expect(event[:event_type]).to eq 'patient_cohort_import'
+        expect(event[:id]).to eq cohort_import_additional.id
+        expect(event[:details]).to eq 'excluding patient'
+      end
+    end
+  end
 
   describe '#load_add_class_imports_events' do
     before do
-      patient.sessions << session
+      patient.sessions = [session]
       additional_events = { class_imports: { session.id => [class_import_additional.id] } }
       timeline.instance_variable_set(:@additional_events, additional_events)
     end
@@ -67,7 +227,7 @@ describe TimelineRecords do
 
     before do
       class_import_additional.session_id = session.id
-      patient.sessions << session
+      patient.sessions = [session]
       patient.class_imports = [class_import]
       patient.cohort_imports = cohort_imports_with_patient
       patient.organisation.cohort_imports = cohort_imports_with_patient + cohort_imports_without_patient

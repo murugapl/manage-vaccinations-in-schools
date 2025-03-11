@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class TimelineRecords
-  def initialize(patient_id)
+  def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
     @patient_events = patient_events(@patient)
     @additional_events = additional_events(@patient)
+    @detail_config = detail_config
     @events = []
   end
 
@@ -36,139 +37,57 @@ class TimelineRecords
   }
   end
 
+  def details
+    @details ||= {
+      audits: %i[action audited_changes],
+      cohort_imports: %i[],
+      class_imports: %i[],
+      sessions: %i[location_id],
+      school_moves: %i[school_id source],
+      school_move_log_entries: %i[school_id user_id],
+      consents: %i[response route],
+      triages: %i[status performed_by_user_id],
+      vaccination_records: %i[outcome session_id],
+  }.merge(@detail_config)
+  end
+
   private
 
   def load_events(event_names)
-    event_sources.each do |source|
-      if event_names.include?(source.to_s)
-        @events += respond_to?("#{source}_events", true) ? send("#{source}_events") : generic_events(source.to_s)
+    event_names.each do |event_name|
+      event_type = event_name.to_sym
+  
+      if details.key?(event_type)
+        fields = details[event_type]
+        records = @patient.send(event_type)
+        records = Array(records)
+  
+        records.each do |record|
+          event_details = fields.map { |field| "<br>#{field.to_s.capitalize}; #{record.send(field)}" }.join(' ')
+          @events << {
+            event_type: event_type.to_s.capitalize,
+            id: record.id,
+            details: event_details,
+            created_at: record.created_at
+          }
+        end
+      else
+        # Call a custom function for event types not in details
+        custom_event_handler(event_type)
       end
     end
-    event_names.select { |event| event.start_with?('add_class_imports') }.each do |event|
-      session_id = event.split('_').last.to_i
-      @events += add_class_imports_events(session_id) if session_id.positive?
-    end
     @events.sort_by! { |event| event[:created_at] }
-  end
+  end 
 
-  def event_sources
-    %i[audits consents school_moves school_move_log_entries patient_sessions triages vaccination_records class_imports 
-cohort_imports org_cohort_imports]
-  end
-
-  def generic_events(event)
-    events = @patient.send(event)
-    return [] if events.nil?
-
-    events.map do |e|
-      {
-        event_type: "generic",
-        id: e.id,
-        details: event.to_s,
-        created_at: e.created_at
-      }
-    end
-  end
-
-  def audits_events
-    @patient.audits.map do |audit|
-      {
-        event_type: audit.action,
-        details: audit.audited_changes,
-        created_at: audit.created_at
-      }
-    end
-  end
-
-  def consents_events
-    @patient.consents.map do |consent|
-      {
-        event_type: 'consent',
-        id: consent.id,
-        details: "#{consent.response} via #{consent.route}",
-        created_at: consent.created_at
-      }
-    end
-  end
-
-  def school_moves_events
-    @patient.school_moves.map do |move|
-      {
-        event_type: 'school_move',
-        id: move.id,
-        details: "to #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name} due to #{move.source}",
-        created_at: move.created_at
-      }
-    end
-  end
-
-  def school_move_log_entries_events
-    @patient.school_move_log_entries.map do |move|
-      {
-        event_type: 'school_move_log',
-        id: move.id,
-        details: "to #{move.school_id.nil? ? @patient.organisation.generic_clinic_session.location.name : Location.find(move.school_id).name}" +
-         (move.user_id.nil? ? "" : " performed by User-#{move.user_id}"),
-        created_at: move.created_at
-      }
-    end
-  end
-
-  def patient_sessions_events
-    @patient_events[:sessions].map do |session_id|
-      session = Session.find(session_id)
-      {
-        event_type: 'session',
-        id: session_id,
-        details: session.location.name.to_s,
-        created_at: session.created_at
-      }
-    end
-  end
-
-  def triages_events
-    @patient.triages.map do |triage|
-      {
-        event_type: 'triage',
-        id: triage.id,
-        details: "#{triage.status} performed by User-#{triage.performed_by_user_id}",
-        created_at: triage.created_at
-      }
-    end
-  end
-
-  def vaccination_records_events
-    @patient.vaccination_records.map do |vaccination|
-      {
-        event_type: 'vaccination',
-        id: vaccination.id,
-        details: "#{vaccination.outcome} at #{Session.find(vaccination.session_id).location.name}",
-        created_at: vaccination.created_at
-      }
-    end
-  end
-
-  def class_imports_events
-    @patient_events[:class_imports].map do |class_import_id|
-      class_import = ClassImport.find(class_import_id)
-      {
-        event_type: 'patient_class_import',
-        id: class_import.id,
-        details: "including patient",
-        created_at: class_import.created_at
-      }
-    end
-  end
-
-  def cohort_imports_events
-    @patient_events[:cohort_imports] do |cohort_import_id|
-      cohort_import = CohortImport.find(cohort_import_id)
-      {
-        event_type: 'patient_cohort_import',
-        id: cohort_import.id,
-        details: "including patient",
-        created_at: cohort_import.created_at
-      }
+  def custom_event_handler(event_type)
+    case event_type
+    when :org_cohort_imports
+      @events += org_cohort_imports_events
+    when /^add_class_imports_\d+$/ # e.g. add_class_imports_123
+      session_id = event_type.to_s.split('_').last
+      @events += add_class_imports_events(session_id)
+    else
+      puts "No handler for event type: #{event_type}"
     end
   end
 
@@ -185,7 +104,7 @@ cohort_imports org_cohort_imports]
   end
 
   def add_class_imports_events(session_id)
-    @additional_events[:class_imports][session_id].map do |class_import_id|
+    @additional_events[:class_imports][session_id.to_i].map do |class_import_id|
       class_import = ClassImport.find(class_import_id)
       { 
         event_type: 'patient_class_import',
@@ -239,36 +158,6 @@ cohort_imports org_cohort_imports]
   end
 
   def format_event_description(event)
-    case event[:event_type]
-    when 'create'
-      "Record created"
-    when 'patient_class_import'
-      "ClassImport-#{event[:id]} #{event[:details]}"
-    when 'patient_cohort_import'
-      "CohortImport-#{event[:id]} #{event[:details]}"
-    when 'update'
-      changes_description = event[:details].map { |key, (before, after)|
-        "#{key} from #{before.nil? ? 'nil' : before} to #{after.nil? ? 'nil' : after}" 
-      }.join(' ')
-      "Updated #{changes_description}"
-    when 'school_move'
-      "Pending SchoolMove-#{event[:id]} #{event[:details]}"
-    when 'school_move_log'
-      "SchoolMove-#{event[:id]} #{event[:details]}"
-    when 'session'
-      "Added to Session-#{event[:id]} #{event[:details]}"
-    when 'consent'
-      "Consent-#{event[:id]} #{event[:details]}"
-    when 'triage'
-      "Triage-#{event[:id]} #{event[:details]}"
-    when 'vaccination'
-      "Vaccination-#{event[:id]} #{event[:details]}"
-    when 'destroy'
-      "Record destroyed"
-    when 'generic'
-      "#{event[:details]}-#{event[:id]}"
-    else
-      "Event-#{event[:id]} #{event[:details]}"
-    end
+    "#{event[:event_type]}-#{event[:id]} #{event[:details]}"
   end
 end
