@@ -15,6 +15,11 @@ class TimelineRecords
     format_timeline
   end
 
+  def generate_timeline_console(*event_names)
+    load_events(event_names)
+    format_timeline_json
+  end
+
   def additional_events(patient)
     patient_imports = patient_events(patient)[:class_imports]
     class_imports = ClassImport.where(session_id: patient_events(patient)[:sessions])
@@ -63,7 +68,7 @@ class TimelineRecords
         records = Array(records)
   
         records.each do |record|
-          event_details = fields.map { |field| "<br>#{field.to_s.capitalize}; #{record.send(field)}" }.join(' ')
+          event_details = fields.map { |field| [field.to_s.capitalize, record.send(field)] }.to_h
           @events << {
             event_type: event_type.to_s.capitalize,
             id: record.id,
@@ -158,6 +163,22 @@ class TimelineRecords
   end
 
   def format_event_description(event)
-    "#{event[:event_type]}-#{event[:id]} #{event[:details]}"
+    details_string = event[:details].map { |key, value| "#{key}; #{value}" }.join("<br>")
+    "#{event[:event_type]}-#{event[:id]}<br>#{details_string}"
+  end
+
+  def format_timeline_json
+    timeline = []
+    @events.each do |event|
+      event_hash = {
+        date: event[:created_at].strftime('%Y-%m-%d'),
+        time: event[:created_at].strftime('%H:%M:%S'),
+        event_type: event[:event_type],
+        id: event[:id],
+        details: event[:details]
+      }
+      timeline << event_hash
+    end
+    JSON.pretty_generate(timeline)
   end
 end
