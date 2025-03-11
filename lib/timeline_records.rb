@@ -11,7 +11,7 @@ class TimelineRecords
       consents: %i[response route],
       triages: %i[status performed_by_user_id],
       vaccination_records: %i[outcome session_id]
-    }
+    }.freeze
 
   def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
@@ -27,9 +27,9 @@ class TimelineRecords
     format_timeline
   end
 
-  def generate_timeline_console(*event_names)
+  def generate_timeline_console(*event_names, truncate_columns: true)
     load_events(event_names)
-    format_timeline_json
+    format_timeline_console(truncate_columns)
   end
 
   def additional_events(patient)
@@ -169,22 +169,46 @@ class TimelineRecords
   end
 
   def format_event_description(event)
-    details_string = event[:details].is_a?(Hash) ? event[:details].map { |key, value| "#{key}; #{value}" }.join("<br> ") : event[:details]
+    details_string = if event[:details].is_a?(Hash)
+  event[:details].map { |key, value|
+ "#{key}; #{value}" }.join("<br> ")
+else
+  event[:details]
+end
     "#{event[:event_type]}-#{event[:id]}<br> #{details_string}"
   end
 
-  def format_timeline_json
-    timeline = []
+  def format_timeline_console(truncate_columns)
+    # Increase field widths as needed.
+    event_type_width = 25
+    details_width = 50
+    header_format = if truncate_columns
+                      "%-12s %-10s %-#{event_type_width}s %-12s %-#{details_width}s"
+                    else
+                      "%-12s %-10s %-20s %-10s %-s"
+                    end 
+    puts sprintf(header_format, "DATE", "TIME", "EVENT_TYPE", "EVENT-ID", "DETAILS")
+    puts "-" * 115
+    
     @events.each do |event|
-      event_hash = {
-        date: event[:created_at].strftime('%Y-%m-%d'),
-        time: event[:created_at].strftime('%H:%M:%S'),
-        event_type: event[:event_type],
-        id: event[:id],
-        details: event[:details]
-      }
-      timeline << event_hash
+      date = event[:created_at].strftime('%Y-%m-%d')
+      time = event[:created_at].strftime('%H:%M:%S')
+      event_type = event[:event_type].to_s.ljust(25)[0...25]
+      event_id = event[:id].to_s
+      details_string = if event[:details].is_a?(Hash)
+                         event[:details].map { |k, v| "#{k}=#{v}" }.join(", ")
+                       else
+                         event[:details].to_s
+                       end
+      if truncate_columns
+        event_type = event_type.ljust(event_type_width)[0...event_type_width]
+        details    = details_string.ljust(details_width)[0...details_width]
+      else
+        details    = details_string
+      end
+      
+      puts sprintf(header_format, date, time, event_type, event_id, details)
     end
-    JSON.pretty_generate(timeline)
-  end
+    nil
+  end  
 end

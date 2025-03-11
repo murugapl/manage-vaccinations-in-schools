@@ -36,10 +36,8 @@ module Inspect
           begin
             Patient.find(params[:manual_patient_id])
           rescue ActiveRecord::RecordNotFound
-            return :invalid_patient
+            :invalid_patient
           end
-        else
-          nil
         end
       end
 
@@ -47,12 +45,12 @@ module Inspect
         details_params = params[:detail_config] || {}
         details_params = details_params.to_unsafe_h unless details_params.is_a?(Hash)
         
-        details_config = details_params.each_with_object({}) do |(event_type, fields), hash|
+        details_params.each_with_object({}) do |(event_type, fields), hash|
           selected_fields = Array(fields).reject(&:blank?).map(&:to_sym)
           hash[event_type.to_sym] = selected_fields
         end
       
-        details_config
+        
       end
 
       def show

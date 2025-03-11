@@ -1,5 +1,10 @@
+# frozen_string_literal: true
+
 describe TimelineRecords do
+  subject(:timeline) { described_class.new(patient.id, detail_config: detail_config) }
+
   let(:programme) { create(:programme, :hpv) }
+  let(:detail_config) { {} }
   let(:organisation) { create(:organisation, programmes: [programme]) }
   let(:session) { create(:session, organisation:, programmes: [programme]) }
   let(:class_import) { create(:class_import, session:) }
@@ -20,30 +25,28 @@ describe TimelineRecords do
   let(:school_move) { create(:school_move, :to_school, patient: patient) }
   let(:school_move_log_entry) { create(:school_move_log_entry, patient: patient) }
   let(:patient_session) { create(:patient_session, patient: patient, session: session) }
-  let(:triage) { create(
+  let(:triage) do create(
     :triage, 
     patient: patient, 
     programme:, 
     status: :ready_to_vaccinate, 
     performed_by: user
-    ) }
-  let(:consent) { create(
+    ) end
+  let(:consent) do create(
     :consent, 
     patient: patient, 
     response: :given, 
     programme:, 
     created_at: Date.new(2025, 1, 1)
-    ) }
-  let(:vaccination_record) { create(
+    ) end
+  let(:vaccination_record) do create(
     :vaccination_record,
     patient:,
     programme:,
     session:,
     performed_at: Time.zone.local(2025, 2, 1)
-    ) }
-  subject(:timeline) { described_class.new(patient.id, detail_config: detail_config) }
+    ) end
 
-  let(:detail_config) { {} }
 
   describe '#load_events' do
 
@@ -112,7 +115,8 @@ describe TimelineRecords do
         expect(timeline.instance_variable_get(:@events).size).to eq 1
         event = timeline.instance_variable_get(:@events).first
         expect(event[:event_type]).to eq 'School_move_log_entries'
-        expect(event[:details]).to eq({ "School_id" => school_move_log_entry.school_id, "User_id" => school_move_log_entry.user_id })
+        expect(event[:details]).to eq({ "School_id" => school_move_log_entry.school_id, 
+"User_id" => school_move_log_entry.user_id })
       end
     
       it 'loads vaccination events with default fields' do
@@ -120,7 +124,8 @@ describe TimelineRecords do
         expect(timeline.instance_variable_get(:@events).size).to eq 1
         event = timeline.instance_variable_get(:@events).first
         expect(event[:event_type]).to eq 'Vaccination_records'
-        expect(event[:details]).to eq({ "Outcome" => vaccination_record.outcome, "Session_id" => vaccination_record.session_id })
+        expect(event[:details]).to eq({ "Outcome" => vaccination_record.outcome, 
+"Session_id" => vaccination_record.session_id })
       end
     end
     
@@ -153,7 +158,8 @@ describe TimelineRecords do
       before do
         patient.sessions = [session]
         patient.cohort_imports = [cohort_import]
-        additional_events = { class_imports: { session.id => [class_import_additional.id] }, cohort_imports: [cohort_import_additional.id] }
+        additional_events = { class_imports: { session.id => [class_import_additional.id] }, 
+cohort_imports: [cohort_import_additional.id] }
         timeline.instance_variable_set(:@additional_events, additional_events)
       end
 
@@ -201,11 +207,13 @@ describe TimelineRecords do
 
     it 'handles multiple additional class imports' do
       another_additional_class_import = create(:class_import, session:, created_at: 1.minute.from_now)
-      additional_events = { class_imports: { session.id => [class_import_additional.id, another_additional_class_import.id] } }
+      additional_events = { class_imports: { session.id => [class_import_additional.id, 
+another_additional_class_import.id] } }
       timeline.instance_variable_set(:@additional_events, additional_events)
       events = timeline.send(:load_events, ["add_class_imports_#{session.id}"])
       expect(events.size).to eq 2
-      expect(events.map { |event| event[:id] }).to contain_exactly(class_import_additional.id, another_additional_class_import.id)
+      expect(events.map do |event|
+ event[:id] end).to contain_exactly(class_import_additional.id, another_additional_class_import.id)
     end
 
     it 'handles no additional class imports' do
