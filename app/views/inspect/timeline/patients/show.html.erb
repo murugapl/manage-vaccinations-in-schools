@@ -169,14 +169,14 @@
 
         <% end %>
       </div>
-
-      <%= f.govuk_submit "Reset filters", type: "reset",
-                                          secondary: true,
-                                          "data-autosubmit-target": "reset",
-                                          "data-action": "autosubmit#submit",
-                                          "data-turbo-permanent": "true",
-                                          class: %w[nhsuk-u-display-block
-                                                    app-button--small] %>
+      <div>
+      <%= link_to "Reset filters",
+        inspect_timeline_patient_path(
+          event_names: Inspect::Timeline::PatientsController::DEFAULT_EVENT_NAMES,
+          detail_config: TimelineRecords::DEFAULT_DETAILS_CONFIG
+        ),
+        class: "nhsuk-button app-add-another__delete app-button--secondary-warning app-button--small" %>
+      </div>
       <%= f.govuk_submit "Update timeline", "data-autosubmit-target": "filter",
                                    "data-turbo-permanent": "true" %>
     <% end %>
