@@ -9,7 +9,7 @@ module Inspect
 
       DEFAULT_EVENT_NAMES = [
         'consents', 'school_moves', 'school_move_log_entries', 'audits',
-        'patient_sessions', 'triages', 'vaccination_records', 'class_imports',
+        'sessions', 'triages', 'vaccination_records', 'class_imports',
         'cohort_imports'
       ].freeze
 
@@ -109,7 +109,7 @@ module Inspect
           'school_moves'         => 'School Moves',
           'school_move_log_entries' => 'School Move Log Entries',
           'audits'               => 'Audits',
-          'patient_sessions'     => 'Sessions',
+          'sessions'             => 'Sessions',
           'triages'              => 'Triages',
           'vaccination_records'  => 'Vaccination Records',
           'class_imports'        => 'Class Imports',

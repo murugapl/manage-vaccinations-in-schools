@@ -74,7 +74,7 @@
                     <div class="nhsuk-form-group">
                       <%= f.select "detail_config[#{value}]",
                             available_fields.map { |field| [field.to_s.capitalize, field.to_s] },
-                            { selected: (params.dig(:detail_config, value) || available_fields.map(&:to_s)) },
+                            { selected: (params.dig(:detail_config, value) || []) },
                             { multiple: true, class: "nhsuk-select", style: "height: 10em; margin-top: 5px;" } %>
                     </div>
                   </div>
