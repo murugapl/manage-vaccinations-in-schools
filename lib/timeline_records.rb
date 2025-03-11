@@ -1,12 +1,24 @@
 # frozen_string_literal: true
 
 class TimelineRecords
+  DEFAULT_DETAILS_CONFIG = {
+      audits: %i[action audited_changes],
+      cohort_imports: [],
+      class_imports: [],
+      sessions: %i[location_id],
+      school_moves: %i[school_id source],
+      school_move_log_entries: %i[school_id user_id],
+      consents: %i[response route],
+      triages: %i[status performed_by_user_id],
+      vaccination_records: %i[outcome session_id]
+    }
+
   def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
     @patient_events = patient_events(@patient)
     @additional_events = additional_events(@patient)
-    @detail_config = detail_config
+    @detail_config = extract_detail_config(detail_config)
     @events = []
   end
 
@@ -42,18 +54,12 @@ class TimelineRecords
   }
   end
 
+  def extract_detail_config(detail_config)
+    detail_config.deep_symbolize_keys
+  end
+
   def details
-    @details ||= {
-      audits: %i[action audited_changes],
-      cohort_imports: %i[],
-      class_imports: %i[],
-      sessions: %i[location_id],
-      school_moves: %i[school_id source],
-      school_move_log_entries: %i[school_id user_id],
-      consents: %i[response route],
-      triages: %i[status performed_by_user_id],
-      vaccination_records: %i[outcome session_id],
-  }.merge(@detail_config)
+    @details ||= DEFAULT_DETAILS_CONFIG.merge(@detail_config)
   end
 
   private

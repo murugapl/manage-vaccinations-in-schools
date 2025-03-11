@@ -8,10 +8,10 @@
 
   <% if @no_events_message %>
     <%= render AppWarningCalloutComponent.new(
-      heading: "No events found",
-      description: "Patient-#{@patient.id} doesn't have the following events recorded: " + 
-      "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
-    ) %>
+          heading: "No events found",
+          description: "Patient-#{@patient.id} doesn't have the following events recorded: " + 
+          "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
+        ) %>
   <% else %>
     <div class="nhsuk-u-margin-top-6">
       <pre class="mermaid">
@@ -23,15 +23,15 @@
 
   <% if @invalid_patient_id %>
     <%= render AppWarningCalloutComponent.new(
-      heading: "Invalid patient ID",
-      description: "Patient-#{params[:manual_patient_id]} doesn't exist"
-    ) %>
+          heading: "Invalid patient ID",
+          description: "Patient-#{params[:manual_patient_id]} doesn't exist"
+        ) %>
   <% elsif @no_events_compare_message %>
     <%= render AppWarningCalloutComponent.new(
-      heading: "No events found for comparison patient",
-      description: "Patient-#{@compare_patient.id} doesn't have the following events recorded: " + 
-      "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
-    ) %>
+          heading: "No events found for comparison patient",
+          description: "Patient-#{@compare_patient.id} doesn't have the following events recorded: " + 
+          "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
+        ) %>
   <% elsif @mermaid_compare_code %>
     <div class="nhsuk-u-margin-top-6">
       <pre class="mermaid">
@@ -48,12 +48,39 @@
         <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Events to display:", size: "s" } do %>
           
           <% event_options.each do |value, text| %>
-            <%= f.govuk_check_box :event_names, value, 
-            label: { text: text }, 
-            checked: value.in?(params[:event_names]), 
-            "data-autosubmit-target": "field", 
-            "data-action": "autosubmit#submit", 
-            "data-turbo-permanent": "true" %>
+            <div class="nhsuk-form-group">
+              <%= f.govuk_check_box :event_names, value, 
+                label: { text: text }, 
+                checked: value.in?(params[:event_names]), 
+                "data-autosubmit-target": "field", 
+                "data-action": "autosubmit#submit", 
+                "data-turbo-permanent": "true" %>
+
+              <% # If TimelineRecords has fields for the event type, output dropdown for detail_config %>
+              <% if value.to_s == 'audits' %>
+                <% model_class = Audited::Audit %>
+              <% else %>
+                <% begin %>
+                  <% model_class = value.to_s.classify.constantize %>
+                <% rescue NameError %>
+                  <% model_class = nil %>
+                <% end %>
+              <% end %>
+              <% available_fields = model_class.column_names - %w[id created_at updated_at] %>
+              <% if available_fields.present? %>
+                <details class="nhsuk-details" style="margin-left:1em;">
+                  <summary class="nhsuk-details__summary">Select fields for <%= text %></summary>
+                  <div class="nhsuk-details__text">
+                    <div class="nhsuk-form-group">
+                      <%= f.select "detail_config[#{value}]",
+                            available_fields.map { |field| [field.to_s.capitalize, field.to_s] },
+                            { selected: (params.dig(:detail_config, value) || available_fields.map(&:to_s)) },
+                            { multiple: true, class: "nhsuk-select", style: "height: 10em; margin-top: 5px;" } %>
+                    </div>
+                  </div>
+                </details>
+              <% end %>
+            </div>
           <% end %>
 
           <%= f.govuk_check_box :event_names, "org_cohort_imports", 
@@ -71,7 +98,7 @@
                 "data-action": "autosubmit#submit", 
                 "data-turbo-permanent": "true" %>
 
-            <% end %>
+          <% end %>
         <% end %>
       </div>
 

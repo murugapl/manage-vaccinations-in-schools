@@ -193,7 +193,7 @@ describe TimelineRecords do
       events = timeline.send(:load_events, ["add_class_imports_#{session.id}"])
       expect(events.size).to eq 1
       event = events.first
-      expect(event[:event_type]).to eq 'patient_class_import'
+      expect(event[:event_type]).to eq 'class_import'
       expect(event[:id]).to eq class_import_additional.id
       expect(event[:details]).to eq 'excluding patient'
       expect(event[:created_at]).to eq class_import_additional.created_at

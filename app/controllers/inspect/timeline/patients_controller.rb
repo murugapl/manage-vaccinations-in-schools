@@ -5,20 +5,22 @@ module Inspect
   module Timeline
     class PatientsController < ApplicationController
       before_action :set_patient
-      helper_method :event_options, :reset_filters
+      helper_method :event_options
 
-      DEFAULT_EVENT_NAMES = ['consents', 'school_moves', 'school_move_log_entries', 'audits', 
-                            'patient_sessions', 'triages', 'vaccination_records', 'class_imports', 
-                            'cohort_imports', 'vaccination_records'].freeze
+      DEFAULT_EVENT_NAMES = [
+        'consents', 'school_moves', 'school_move_log_entries', 'audits',
+        'patient_sessions', 'triages', 'vaccination_records', 'class_imports',
+        'cohort_imports'
+      ].freeze
 
       def set_patient
-        @patient =
-          policy_scope(Patient).find(params[:id])
-        @patient_timeline = TimelineRecords.new(@patient.id)
-        @patient_events = @patient_timeline.patient_events(@patient)
-        @additional_events = @patient_timeline.additional_events(@patient)
+        @patient = policy_scope(Patient).find(params[:id])
+        # Preload events if needed in the view.
+        timeline = TimelineRecords.new(@patient.id)
+        @patient_events = timeline.patient_events(@patient)
+        @additional_events = timeline.additional_events(@patient)
       end
-      
+
       def sample_patient(compare_option)
         case compare_option
         when 'class_import'
@@ -41,18 +43,16 @@ module Inspect
         end
       end
 
-      def event_options
-        {
-          'consents' => 'Consents',
-          'school_moves' => 'School Moves',
-          'school_move_log_entries' => 'School Move Log Entries',
-          'audits' => 'Audits',
-          'patient_sessions' => 'Sessions',
-          'triages' => 'Triages',
-          'vaccination_records' => 'Vaccination Records',
-          'class_imports' => 'Class Imports',
-          'cohort_imports' => 'Cohort Imports',
-        }
+      def build_details_config
+        details_params = params[:detail_config] || {}
+        details_params = details_params.to_unsafe_h unless details_params.is_a?(Hash)
+        
+        details_config = details_params.each_with_object({}) do |(event_type, fields), hash|
+          selected_fields = Array(fields).reject(&:blank?).map(&:to_sym)
+          hash[event_type.to_sym] = selected_fields
+        end
+      
+        details_config
       end
 
       def show
@@ -62,12 +62,17 @@ module Inspect
 
         event_names = params[:event_names]
         compare_option = params[:compare_option] || nil
+      
+        # If no detail configuration is provided, add the defaults.
+        if params[:detail_config].blank?
+          default_details = TimelineRecords::DEFAULT_DETAILS_CONFIG
+          new_params = params.to_unsafe_h.merge("detail_config" => default_details)
+          redirect_to inspect_timeline_patient_path(new_params) and return
+        end
 
-        mermaid = @patient_timeline
-                    .generate_timeline(
-                      *event_names
-                      )
-        
+        @patient_timeline = TimelineRecords.new(@patient.id, detail_config: build_details_config)
+        mermaid = @patient_timeline.generate_timeline(*event_names)
+
         if mermaid.blank?
           @no_events_message = true
         else
@@ -96,6 +101,20 @@ module Inspect
             @mermaid_compare_code = mermaid_compare.join("\n")
           end
         end
+      end
+
+      def event_options
+        {
+          'consents'             => 'Consents',
+          'school_moves'         => 'School Moves',
+          'school_move_log_entries' => 'School Move Log Entries',
+          'audits'               => 'Audits',
+          'patient_sessions'     => 'Sessions',
+          'triages'              => 'Triages',
+          'vaccination_records'  => 'Vaccination Records',
+          'class_imports'        => 'Class Imports',
+          'cohort_imports'       => 'Cohort Imports'
+        }
       end
     end
   end
