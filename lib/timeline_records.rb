@@ -22,11 +22,6 @@ class TimelineRecords
     @events = []
   end
 
-  def generate_timeline(*event_names)
-    load_events(event_names)
-    format_timeline
-  end
-
   def generate_timeline_console(*event_names, truncate_columns: true)
     load_events(event_names)
     format_timeline_console(truncate_columns)
@@ -62,8 +57,6 @@ class TimelineRecords
     @details ||= DEFAULT_DETAILS_CONFIG.merge(@detail_config)
   end
 
-  private
-
   def load_events(event_names)
     event_names.each do |event_name|
       event_type = event_name.to_sym
@@ -89,6 +82,8 @@ class TimelineRecords
     end
     @events.sort_by! { |event| event[:created_at] }
   end 
+
+  private
 
   def custom_event_handler(event_type)
     case event_type
@@ -124,58 +119,6 @@ class TimelineRecords
         created_at: class_import.created_at.to_time
       }
     end
-  end
-
-  def format_timeline
-    timeline = ["timeline", "title Timeline for Patient-#{@patient_id}"]
-    current_date = nil
-    current_time = nil
-    stacked_events = []
-  
-    @events.each do |event|
-      event_date = event[:created_at].strftime('%Y-%m-%d')
-      event_time = event[:created_at].strftime('%H-%M-%S')
-  
-      if event_date != current_date
-        # Output any stacked events before starting a new section
-        unless stacked_events.empty?
-          timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
-          stacked_events.clear
-        end
-  
-        timeline << "    section #{event_date}"
-        current_date = event_date
-      end
-  
-      if event_time != current_time
-        # Output any stacked events before starting a new time
-        unless stacked_events.empty?
-          timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
-          stacked_events.clear
-        end
-  
-        current_time = event_time
-      end
-  
-      event_description = format_event_description(event)
-      stacked_events << event_description
-    end
-  
-    # Output any remaining stacked events
-    unless stacked_events.empty?
-      timeline << "        #{current_time} : #{stacked_events.join(' : ')}"
-    end
-  
-  end
-
-  def format_event_description(event)
-    details_string = if event[:details].is_a?(Hash)
-  event[:details].map { |key, value|
- "#{key}; #{value}" }.join("<br> ")
-else
-  event[:details]
-end
-    "#{event[:event_type]}-#{event[:id]}<br> #{details_string}"
   end
 
   def format_timeline_console(truncate_columns)

@@ -13,11 +13,7 @@
           "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
         ) %>
   <% else %>
-    <div class="nhsuk-u-margin-top-6">
-      <pre class="mermaid">
-        <%= @mermaid_code.html_safe %>
-      </pre>
-    </div>
+    <%= render AppTimelineTableComponent.new( events: @patient_timeline, patient_id: @patient.id ) %>
   <% end %>
 
 
@@ -32,12 +28,8 @@
           description: "Patient-#{@compare_patient.id} doesn't have the following events recorded: " + 
           "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
         ) %>
-  <% elsif @mermaid_compare_code %>
-    <div class="nhsuk-u-margin-top-6">
-      <pre class="mermaid">
-        <%= @mermaid_compare_code.html_safe %>
-      </pre>
-    </div>
+  <% elsif @compare_patient_timeline %>
+      <%= render AppTimelineTableComponent.new( events: @compare_patient_timeline, patient_id: @compare_patient.id ) %>
   <% end %>
 
 
