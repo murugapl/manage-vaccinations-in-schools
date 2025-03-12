@@ -2,7 +2,6 @@
 
 class TimelineRecords
   DEFAULT_DETAILS_CONFIG = {
-      audits: %i[action audited_changes],
       cohort_imports: [],
       class_imports: [],
       sessions: %i[location_id],
@@ -12,6 +11,19 @@ class TimelineRecords
       triages: %i[status performed_by_user_id],
       vaccination_records: %i[outcome session_id]
     }.freeze
+
+  AVAILABLE_DETAILS_CONFIG = {
+    cohort_imports: %i[rows_count status uploaded_by_user_id],
+    class_imports: %i[rows_count year_groups uploaded_by_user_id session_id],
+    sessions: %i[location_id],
+    school_moves: %i[source school_id home_educated],
+    school_move_log_entries: %i[user_id school_id home_educated],
+    consents: %i[programme_id response route parent_id withdrawn_at invalidated_at],
+    triages: %i[status performed_by_user_id programme_id invalidated_at],
+    vaccination_records: %i[outcome performed_by_user_id programme_id session_id vaccine_id]
+  }.freeze
+
+  ALLOWED_AUDITED_CHANGES = %i[organisation_id school_id date_of_death_recorded_at restricted_at invalidated_at gp_practice_id]
 
   def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
@@ -67,9 +79,9 @@ class TimelineRecords
         records = Array(records)
   
         records.each do |record|
-          event_details = fields.map { |field| [field.to_s.capitalize, record.send(field)] }.to_h
+          event_details = fields.map { |field| [field.to_s, record.send(field)] }.to_h
           @events << {
-            event_type: event_type.to_s.capitalize,
+            event_type: record.class.name,
             id: record.id,
             details: event_details,
             created_at: record.created_at
@@ -92,6 +104,8 @@ class TimelineRecords
     when /^add_class_imports_\d+$/ # e.g. add_class_imports_123
       session_id = event_type.to_s.split('_').last
       @events += add_class_imports_events(session_id)
+    when :audits
+      @events += audits_events
     else
       puts "No handler for event type: #{event_type}"
     end
@@ -101,7 +115,7 @@ class TimelineRecords
     @additional_events[:cohort_imports].map do |cohort_import_id|
       cohort_import = CohortImport.find(cohort_import_id)
       {
-        event_type: 'cohort_import',
+        event_type: 'CohortImport',
         id: cohort_import.id,
         details: "excluding patient",
         created_at: cohort_import.created_at
@@ -113,10 +127,24 @@ class TimelineRecords
     @additional_events[:class_imports][session_id.to_i].map do |class_import_id|
       class_import = ClassImport.find(class_import_id)
       { 
-        event_type: 'class_import',
+        event_type: 'ClassImport',
         id: class_import.id,
-        details: "excluding patient",
+        details: { session_id: "#{class_import.session_id}, excluding patient" },
         created_at: class_import.created_at.to_time
+      }
+    end
+  end
+
+  def audits_events
+    @patient.audits.map do |audit|
+      filtered_changes = audit.audited_changes.select { |key, value| ALLOWED_AUDITED_CHANGES.include?(key.to_sym) }
+      event_details = { action: audit.action }
+      event_details[:audited_changes] = filtered_changes.deep_symbolize_keys unless filtered_changes.empty?
+      { 
+        event_type: 'Audit',
+        id: audit.id,
+        details: event_details,
+        created_at: audit.created_at
       }
     end
   end
@@ -139,7 +167,7 @@ class TimelineRecords
       event_type = event[:event_type].to_s.ljust(25)[0...25]
       event_id = event[:id].to_s
       details_string = if event[:details].is_a?(Hash)
-                         event[:details].map { |k, v| "#{k}=#{v}" }.join(", ")
+                         event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
                        else
                          event[:details].to_s
                        end

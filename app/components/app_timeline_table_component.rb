@@ -17,22 +17,9 @@ class AppTimelineTableComponent < ViewComponent::Base
 
   def formatted_details(event)
     if event[:details].is_a?(Hash)
-      event[:details].map { |k, v| "#{k}=#{v}" }.join(", ")
+      event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
     else
       event[:details].to_s
-    end
-  end
-
-  def row_class(event)
-    case event[:event_type].downcase
-    when 'sessions'
-      "nhsuk-table__row--highlight"
-    when 'consents'
-      "nhsuk-table__row--alert"
-    when 'school_move_log_entries'
-      "nhsuk-table__row--secondary"
-    else
-      ""
     end
   end
 end

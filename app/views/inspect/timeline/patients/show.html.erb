@@ -13,6 +13,13 @@
           "#{params[:event_names].map { |e| "#{event_options[e]}" }.join(", ")}".html_safe
         ) %>
   <% else %>
+    <% if params[:event_names].include?("audits") %>
+      <%= govuk_inset_text do %>
+        <p class="nhsuk-body">
+          Only audited changes that do not involve PII are included
+        </p>
+      <% end %>
+    <% end %>
     <%= render AppTimelineTableComponent.new( events: @patient_timeline, patient_id: @patient.id ) %>
   <% end %>
 
@@ -49,23 +56,14 @@
                 "data-turbo-permanent": "true" %>
 
               <% # If TimelineRecords has fields for the event type, output dropdown for detail_config %>
-              <% if value.to_s == 'audits' %>
-                <% model_class = Audited::Audit %>
-              <% else %>
-                <% begin %>
-                  <% model_class = value.to_s.classify.constantize %>
-                <% rescue NameError %>
-                  <% model_class = nil %>
-                <% end %>
-              <% end %>
-              <% available_fields = model_class.column_names - %w[id created_at updated_at] %>
+              <% available_fields = TimelineRecords::AVAILABLE_DETAILS_CONFIG[value.to_sym] %>
               <% if available_fields.present? %>
                 <details class="nhsuk-details" style="margin-left:1em;">
                   <summary class="nhsuk-details__summary">Select fields for <%= text %></summary>
                   <div class="nhsuk-details__text">
                     <div class="nhsuk-form-group">
                       <%= f.select "detail_config[#{value}]",
-                            available_fields.map { |field| [field.to_s.capitalize, field.to_s] },
+                            available_fields.map { |field| [field.to_s, field.to_s] },
                             { selected: (params.dig(:detail_config, value) || []) },
                             { multiple: true, class: "nhsuk-select", style: "height: 10em; margin-top: 5px;" } %>
                     </div>

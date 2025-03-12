@@ -105,15 +105,15 @@ module Inspect
 
       def event_options
         {
-          'consents'             => 'Consents',
+          'audits'               => 'Audits',
+          'cohort_imports'       => 'Cohort Imports',
+          'class_imports'        => 'Class Imports',
           'school_moves'         => 'School Moves',
           'school_move_log_entries' => 'School Move Log Entries',
-          'audits'               => 'Audits',
           'sessions'             => 'Sessions',
+          'consents'             => 'Consents',
           'triages'              => 'Triages',
           'vaccination_records'  => 'Vaccination Records',
-          'class_imports'        => 'Class Imports',
-          'cohort_imports'       => 'Cohort Imports'
         }
       end
     end
