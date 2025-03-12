@@ -22,4 +22,19 @@ class AppTimelineTableComponent < ViewComponent::Base
       event[:details].to_s
     end
   end
+
+  def tag_colour(event_type)
+    mapping = {
+      "CohortImport"         => "blue",
+      "ClassImport"          => "purple",
+      "Audit"                => "orange",
+      "Session"              => "green",
+      "Consent"              => "yellow",
+      "Triage"               => "red",
+      "VaccinationRecord"    => "grey",
+      "SchoolMove"           => "light-blue",
+      "SchoolMoveLogEntry"   => "pink"
+    }
+    mapping.fetch(event_type, "grey")
+  end  
 end

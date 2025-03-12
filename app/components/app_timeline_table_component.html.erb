@@ -29,8 +29,8 @@
 
           <% row.with_cell do %>
             <span class="nhsuk-table-responsive__heading">Event type</span>
-            <%= event[:event_type] %>
-          <% end %>
+            <%= govuk_tag(text: event[:event_type], colour: tag_colour(event[:event_type])) %>
+            <% end %>
 
           <% row.with_cell do %>
             <span class="nhsuk-table-responsive__heading">Event ID</span>
