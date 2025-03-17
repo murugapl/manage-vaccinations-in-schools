@@ -64,7 +64,7 @@ $color_app-dark-orange: color.scale(
 @import "tabs";
 @import "typography";
 @import "utilities";
-
+@import "timeline";
 // Fix checkbox check sizing
 .nhsuk-checkboxes__label::after {
   box-sizing: border-box;

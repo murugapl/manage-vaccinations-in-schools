@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# This component is used to render a table of events in the timeline view.
 class AppTimelineTableComponent < ViewComponent::Base
-  def initialize(events:, patient_id:)
+  def initialize(events:, patient_id:, omit_details: false)
     @events = events
     @patient_id = patient_id
+    @omit_details = omit_details
   end
 
   def formatted_date(event)
@@ -36,5 +36,11 @@ class AppTimelineTableComponent < ViewComponent::Base
       "SchoolMoveLogEntry"   => "pink"
     }
     mapping.fetch(event_type, "grey")
-  end  
+  end
+
+  # Group events by date
+  def grouped_events
+    @events.sort_by { |event| event[:created_at] }
+           .group_by { |event| formatted_date(event) }
+  end
 end
