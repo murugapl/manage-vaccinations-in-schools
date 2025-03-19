@@ -11,7 +11,7 @@ module Inspect
 
       DEFAULT_EVENT_NAMES = [
         'consents', 'school_moves', 'school_move_log_entries', 'audits',
-        'sessions', 'triages', 'vaccination_records', 'class_imports',
+        'patient_sessions', 'triages', 'vaccination_records', 'class_imports',
         'cohort_imports'
       ].freeze
 
@@ -79,7 +79,7 @@ module Inspect
 
         @patient_timeline = TimelineRecords
                               .new(@patient.id, detail_config: build_details_config)
-                              .load_events(event_names)
+                              .load_grouped_events(event_names)
 
         if @patient_timeline.empty?
           @no_events_message = true
@@ -95,7 +95,7 @@ module Inspect
           # Generate timeline for the compare patient
           @compare_patient_timeline = TimelineRecords
                                         .new(@compare_patient.id, detail_config: build_details_config)
-                                        .load_events(event_names)
+                                        .load_grouped_events(event_names)
 
           if @compare_patient_timeline.empty?
             @no_events_compare_message = true
@@ -110,7 +110,7 @@ module Inspect
           'class_imports'        => 'Class Imports',
           'school_moves'         => 'School Moves',
           'school_move_log_entries' => 'School Move Log Entries',
-          'sessions'             => 'Sessions',
+          'patient_sessions'     => 'Patient Sessions',
           'consents'             => 'Consents',
           'triages'              => 'Triages',
           'vaccination_records'  => 'Vaccination Records',

@@ -4,7 +4,7 @@ class TimelineRecords
   DEFAULT_DETAILS_CONFIG = {
       cohort_imports: [],
       class_imports: [],
-      sessions: %i[location_id],
+      patient_sessions: %i[session_id],
       school_moves: %i[school_id source],
       school_move_log_entries: %i[school_id user_id],
       consents: %i[response route],
@@ -15,7 +15,7 @@ class TimelineRecords
   AVAILABLE_DETAILS_CONFIG = {
     cohort_imports: %i[rows_count status uploaded_by_user_id],
     class_imports: %i[rows_count year_groups uploaded_by_user_id session_id],
-    sessions: %i[location_id],
+    patient_sessions: %i[session_id],
     school_moves: %i[source school_id home_educated],
     school_move_log_entries: %i[user_id school_id home_educated],
     consents: %i[programme_id response route parent_id withdrawn_at invalidated_at],
@@ -35,7 +35,7 @@ class TimelineRecords
   end
 
   def generate_timeline_console(*event_names, truncate_columns: true)
-    load_events(event_names)
+    load_grouped_events(event_names)
     format_timeline_console(truncate_columns)
   end
 
@@ -88,14 +88,29 @@ class TimelineRecords
           }
         end
       else
-        # Call a custom function for event types not in details
         custom_event_handler(event_type)
       end
     end
-    @events.sort_by! { |event| event[:created_at] }
+    @events.sort_by!{ |event| event[:created_at] }.reverse!
   end 
 
+  def load_grouped_events(event_names)
+    load_events(event_names)
+    @events.each do |event|
+      event[:details] = format_details(event)
+    end
+    @grouped_events = @events.group_by { |event| event[:created_at].strftime(Date::DATE_FORMATS[:long]) }.sort_by{ |date, _events| date }.reverse!.to_h
+  end
+
   private
+
+  def format_details(event)
+    if event[:details].is_a?(Hash)
+      event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
+    else
+      event[:details].to_s
+    end
+  end
 
   def custom_event_handler(event_type)
     case event_type
@@ -150,7 +165,6 @@ class TimelineRecords
   end
 
   def format_timeline_console(truncate_columns)
-    # Increase field widths as needed.
     event_type_width = 25
     details_width = 50
     header_format = if truncate_columns
@@ -161,24 +175,25 @@ class TimelineRecords
     puts sprintf(header_format, "DATE", "TIME", "EVENT_TYPE", "EVENT-ID", "DETAILS")
     puts "-" * 115
     
-    @events.each do |event|
-      date = event[:created_at].strftime('%Y-%m-%d')
-      time = event[:created_at].strftime('%H:%M:%S')
-      event_type = event[:event_type].to_s.ljust(25)[0...25]
-      event_id = event[:id].to_s
-      details_string = if event[:details].is_a?(Hash)
-                         event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
-                       else
-                         event[:details].to_s
-                       end
-      if truncate_columns
-        event_type = event_type.ljust(event_type_width)[0...event_type_width]
-        details    = details_string.ljust(details_width)[0...details_width]
-      else
-        details    = details_string
+    @grouped_events.each do |date, events|
+      puts "=== #{date} ===\n" + "-" * 115
+      events.each do |event|
+        time = event[:created_at].strftime('%H:%M:%S')
+        event_type = event[:event_type].to_s
+        event_id = event[:id].to_s
+        details_string = if event[:details].is_a?(Hash)
+                           event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
+                         else
+                           event[:details].to_s
+                         end   
+        if truncate_columns
+          event_type = event_type.ljust(event_type_width)[0...event_type_width]
+          details = details_string.ljust(details_width)[0...details_width]
+        else
+          details = details_string
+        end
+        puts sprintf(header_format, "", time, event_type, event_id, details)
       end
-      
-      puts sprintf(header_format, date, time, event_type, event_id, details)
     end
     nil
   end  

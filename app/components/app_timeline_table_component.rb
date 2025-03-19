@@ -7,20 +7,8 @@ class AppTimelineTableComponent < ViewComponent::Base
     @omit_details = omit_details
   end
 
-  def formatted_date(event)
-    event[:created_at].strftime("%Y-%m-%d")
-  end
-
-  def formatted_time(event)
-    event[:created_at].strftime("%H:%M:%S")
-  end
-
-  def formatted_details(event)
-    if event[:details].is_a?(Hash)
-      event[:details].map { |k, v| "#{k}: #{v}" }.join(", ")
-    else
-      event[:details].to_s
-    end
+  def format_time(date_time)
+    date_time.strftime("%H:%M:%S")
   end
 
   def tag_colour(event_type)
@@ -28,7 +16,7 @@ class AppTimelineTableComponent < ViewComponent::Base
       "CohortImport"         => "blue",
       "ClassImport"          => "purple",
       "Audit"                => "orange",
-      "Session"              => "green",
+      "PatientSession"       => "green",
       "Consent"              => "yellow",
       "Triage"               => "red",
       "VaccinationRecord"    => "grey",
@@ -36,11 +24,5 @@ class AppTimelineTableComponent < ViewComponent::Base
       "SchoolMoveLogEntry"   => "pink"
     }
     mapping.fetch(event_type, "grey")
-  end
-
-  # Group events by date
-  def grouped_events
-    @events.sort_by { |event| event[:created_at] }
-           .group_by { |event| formatted_date(event) }
   end
 end

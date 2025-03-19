@@ -16,7 +16,7 @@
     <% end %>
 
     <% table.with_body do |body| %>
-      <% grouped_events.each do |date, events| %>
+      <% @events.each do |date, events| %>
         <%= body.with_row do |row| %>
           <% # Date header row spanning all columns %>
           <% colspan = @omit_details ? 3 : 4 %>
@@ -26,7 +26,7 @@
           <% body.with_row do |row| %>
             <% row.with_cell do %>
               <span class="nhsuk-table-responsive__heading">Time</span>
-              <%= formatted_time(event) %>
+              <%= format_time(event[:created_at]) %>
             <% end %>
 
             <% row.with_cell do %>
@@ -42,7 +42,7 @@
             <% unless @omit_details %>
               <% row.with_cell do %>
                 <span class="nhsuk-table-responsive__heading">Details</span>
-                <%= formatted_details(event) %>
+                <%= event[:details] %>
               <% end %>
             <% end %>
           <% end %>
