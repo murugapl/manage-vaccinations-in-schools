@@ -15,12 +15,12 @@ class AppTimelineTableComponent < ViewComponent::Base
     mapping = {
       "CohortImport"         => "blue",
       "ClassImport"          => "purple",
-      "Audit"                => "orange",
+      "Audit"                => "light-blue",
       "PatientSession"       => "green",
       "Consent"              => "yellow",
       "Triage"               => "red",
       "VaccinationRecord"    => "grey",
-      "SchoolMove"           => "light-blue",
+      "SchoolMove"           => "orange",
       "SchoolMoveLogEntry"   => "pink"
     }
     mapping.fetch(event_type, "grey")

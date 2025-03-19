@@ -23,7 +23,35 @@ class TimelineRecords
     vaccination_records: %i[outcome performed_by_user_id programme_id session_id vaccine_id]
   }.freeze
 
-  ALLOWED_AUDITED_CHANGES = %i[organisation_id school_id date_of_death_recorded_at restricted_at invalidated_at gp_practice_id]
+  ALLOWED_AUDITED_CHANGES = %i[
+    patient_id
+    session_id
+    programme_id
+    vaccine_id
+    organisation_id
+    school_id
+    gp_practice_id
+
+    uploaded_by_user_id
+    performed_by_user_id
+    user_id
+    parent_id
+    
+    status
+    outcome
+    response
+    route
+    
+    date_of_death_recorded_at
+    restricted_at
+    invalidated_at
+    withdrawn_at
+    
+    rows_count
+    year_groups
+    home_educated
+    source
+  ]
 
   def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
@@ -151,9 +179,15 @@ class TimelineRecords
   end
 
   def audits_events
-    @patient.audits.map do |audit|
-      filtered_changes = audit.audited_changes.select { |key, value| ALLOWED_AUDITED_CHANGES.include?(key.to_sym) }
-      event_details = { action: audit.action }
+    @patient.own_and_associated_audits.map do |audit|
+      filtered_changes = audit.audited_changes.transform_keys(&:to_s).map do |key, value|
+        if ALLOWED_AUDITED_CHANGES.include?(key.to_sym)
+          [key, value]
+        else
+          [key, "[FILTERED]"]
+        end
+      end.to_h
+      event_details = { auditable_type: audit.auditable_type, action: audit.action }
       event_details[:audited_changes] = filtered_changes.deep_symbolize_keys unless filtered_changes.empty?
       { 
         event_type: 'Audit',
