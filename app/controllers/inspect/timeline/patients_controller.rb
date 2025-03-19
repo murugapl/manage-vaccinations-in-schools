@@ -22,7 +22,7 @@ module Inspect
         @patient_events = timeline.patient_events(@patient)
         @additional_events = timeline.additional_events(@patient)
       end
-
+      #TODO: Fix so that new patient isn't generated verytime a new option is seletced on filters
       def sample_patient(compare_option)
         case compare_option
         when 'class_import'
