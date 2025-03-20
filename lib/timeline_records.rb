@@ -187,16 +187,20 @@ class TimelineRecords
           [key, "[FILTERED]"]
         end
       end.to_h
-      event_details = { auditable_type: audit.auditable_type, action: audit.action }
+      
+      event_type = "#{audit.auditable_type}-Audit"
+      
+      event_details = { action: audit.action }
       event_details[:audited_changes] = filtered_changes.deep_symbolize_keys unless filtered_changes.empty?
+      
       { 
-        event_type: 'Audit',
+        event_type: event_type,
         id: audit.id,
         details: event_details,
         created_at: audit.created_at
       }
     end
-  end
+  end  
 
   def format_timeline_console(truncate_columns)
     event_type_width = 25

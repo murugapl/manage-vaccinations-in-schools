@@ -12,10 +12,11 @@ class AppTimelineTableComponent < ViewComponent::Base
   end
 
   def tag_colour(event_type)
+    return "light-blue" if event_type.end_with?("-Audit")
+    
     mapping = {
       "CohortImport"         => "blue",
       "ClassImport"          => "purple",
-      "Audit"                => "light-blue",
       "PatientSession"       => "green",
       "Consent"              => "yellow",
       "Triage"               => "red",
