@@ -39,6 +39,7 @@ describe TimelineRecords do
     programme:, 
     created_at: Date.new(2025, 1, 1)
     ) end
+  let(:consent_audit) { consent.audits.create!(audited_changes: { response: ["nil", "given"] }, associated_type: Patient, associated_id: patient.id) }
   let(:vaccination_record) do create(
     :vaccination_record,
     patient:,
@@ -162,8 +163,10 @@ describe TimelineRecords do
       before do
         patient.sessions = [session]
         patient.cohort_imports = [cohort_import]
-        additional_events = { class_imports: { session.id => [class_import_additional.id] }, 
-cohort_imports: [cohort_import_additional.id] }
+        additional_events = { 
+                              class_imports: { session.id => [class_import_additional.id] }, 
+                              cohort_imports: [cohort_import_additional.id] 
+                            }
         timeline.instance_variable_set(:@additional_events, additional_events)
       end
 
@@ -211,8 +214,14 @@ cohort_imports: [cohort_import_additional.id] }
 
     it 'handles multiple additional class imports' do
       another_additional_class_import = create(:class_import, session:, created_at: 1.minute.from_now)
-      additional_events = { class_imports: { session.id => [class_import_additional.id, 
-another_additional_class_import.id] } }
+      additional_events = { 
+                            class_imports: { 
+                              session.id => [
+                                class_import_additional.id, 
+                                another_additional_class_import.id
+                              ] 
+                            } 
+                          } 
       timeline.instance_variable_set(:@additional_events, additional_events)
       events = timeline.send(:load_events, ["add_class_imports_#{session.id}"])
       expect(events.size).to eq 2
@@ -235,27 +244,70 @@ another_additional_class_import.id] } }
 
   describe '#audits_events' do
 
-    it 'returns an array of events' do
-      patient.audits.create!(audited_changes: { organisation_id: [nil, 1], given_name: ["Alessia", "Alice"] })
-      events = timeline.load_events(['audits'])
-      expect(events).to be_an Array
+    before do
+      consent.audits << consent_audit
     end
 
-    it 'includes the audit event' do
-      patient.audits.create!(audited_changes: { organisation_id: [nil, 1], given_name: ["Alessia", "Alice"] })
-      events = timeline.load_events(['audits'])
-      expect(events.size).to eq 2 #create is the first audit
-      event = events.first
-      expect(event[:event_type]).to eq 'Patient-Audit'
-      puts(event[:details][:audited_changes])
-      expect(event[:details][:audited_changes][:organisation_id]).to eq([nil, 1])
-      expect(event[:created_at]).to eq patient.audits.second.created_at
-    end
+    context 'with default settings' do
+      let(:timeline) { TimelineRecords.new(patient.id) }
+      
+      it 'returns an array of events' do
+        patient.audits.create!(audited_changes: { organisation_id: [nil, 1], given_name: ["Alessia", "Alice"] })
+        events = timeline.load_events(['audits'])
+        expect(events).to be_an Array
+      end
 
-    it 'filters out audited changes that are not allowed' do
-      patient.audits.create!(audited_changes: { given_name: ["Alessia", "Alice"] })
-      events = timeline.load_events(['audits'])
-      expect(events.first[:details][:audited_changes][:given_name]).to eq("[FILTERED]")
+      it 'includes the audit event' do
+        patient.audits.create!(audited_changes: { organisation_id: [nil, 1], given_name: ["Alessia", "Alice"] })
+        events = timeline.load_events(['audits'])
+        expect(events.size).to eq 3 # create is the first audit, consent is second
+        event = events.first
+        expect(event[:event_type]).to eq 'Patient-Audit'
+        expect(event[:details][:audited_changes][:organisation_id]).to eq([nil, 1])
+        expect(event[:created_at]).to eq patient.audits.second.created_at
+      end
+
+      it 'does not include audited changes that are not allowed' do
+        patient.audits.create!(audited_changes: { given_name: ["Alessia", "Alice"] })
+        events = timeline.load_events(['audits'])
+        expect(events.size).to eq 3
+        expect(events.first[:event_type]).to eq 'Patient-Audit'
+        expect(events.first[:details]).to eq ({ action: nil })
+      end
+      
+      it 'includes associated audits by default' do
+        events = timeline.load_events(['audits'])
+        associated_event = events.find { |e| e[:id] == consent_audit.id }
+        expect(associated_event).to be_present
+        expect(associated_event[:event_type]).to eq 'Consent-Audit'
+      end
+    end
+    
+    context 'with include_associated_audits: false' do
+      let(:timeline) { TimelineRecords.new(patient.id, audit_config: { include_associated_audits: false }) }
+      
+      it 'does not include associated audits' do
+        events = timeline.load_events(['audits'])
+        associated_event = events.find { |e| e[:id] == consent_audit.id }
+        expect(associated_event).to be_nil
+      end
+      
+      it 'still includes patient audits' do
+        patient.audits.create!(audited_changes: { organisation_id: [nil, 1] })
+        events = timeline.load_events(['audits'])
+        expect(events.size).to eq 2
+        expect(events.first[:event_type]).to eq 'Patient-Audit'
+      end
+    end
+    
+    context 'with include_filtered_audit_changes: true' do
+      let(:timeline) { TimelineRecords.new(patient.id, audit_config: { include_filtered_audit_changes: true }) }
+      
+      it 'includes filtered changes with [FILTERED] value' do
+        patient.audits.create!(audited_changes: { given_name: ["Alessia", "Alice"] })
+        events = timeline.load_events(['audits'])
+        expect(events.first[:details][:audited_changes][:given_name]).to eq("[FILTERED]")
+      end
     end
   end
 

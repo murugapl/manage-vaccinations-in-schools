@@ -53,13 +53,22 @@ class TimelineRecords
     source
   ].freeze
 
-  def initialize(patient_id, detail_config: {})
+  def initialize(
+      patient_id, 
+      detail_config: {}, 
+      audit_config: {
+        include_associated_audits: true, 
+        include_filtered_audit_changes: false
+      }
+    )
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
     @patient_events = patient_events(@patient)
     @additional_events = additional_events(@patient)
     @detail_config = extract_detail_config(detail_config)
     @events = []
+    @include_associated_audits = audit_config[:include_associated_audits]
+    @include_filtered_audit_changes = audit_config[:include_filtered_audit_changes]
   end
 
   def generate_timeline_console(*event_names, truncate_columns: true)
@@ -183,14 +192,16 @@ class TimelineRecords
   end
 
   def audits_events
-    @patient.own_and_associated_audits.map do |audit|
-      filtered_changes = audit.audited_changes.transform_keys(&:to_s).map { |key, value|
+    audits = @include_associated_audits ? @patient.own_and_associated_audits : @patient.audits
+    
+    audits.map do |audit|
+      filtered_changes = audit.audited_changes.transform_keys(&:to_s).each_with_object({}) do |(key, value), hash|
         if ALLOWED_AUDITED_CHANGES.include?(key.to_sym)
-          [key, value]
-        else
-          [key, "[FILTERED]"]
+          hash[key] = value
+        elsif @include_filtered_audit_changes
+          hash[key] = "[FILTERED]"
         end
-      }.to_h
+      end
       
       event_type = "#{audit.auditable_type}-Audit"
       
@@ -204,7 +215,7 @@ class TimelineRecords
         created_at: audit.created_at
       }
     end
-  end  
+  end
 
   def format_timeline_console(truncate_columns)
     event_type_width = 25
