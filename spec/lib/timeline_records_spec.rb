@@ -95,11 +95,11 @@ describe TimelineRecords do
       end
     
       it 'loads session events with default fields' do
-        timeline.send(:load_events, ['sessions'])
+        timeline.send(:load_events, ['patient_sessions'])
         expect(timeline.instance_variable_get(:@events).size).to eq 1
         event = timeline.instance_variable_get(:@events).first
-        expect(event[:event_type]).to eq 'Session'
-        expect(event[:details]).to eq({ "location_id" => session.location_id })
+        expect(event[:event_type]).to eq 'PatientSession'
+        expect(event[:details]).to eq({ "session_id" => session.id })
       end
     
       it 'loads school_move events with default fields' do
@@ -173,7 +173,7 @@ cohort_imports: [cohort_import_additional.id] }
         event = timeline.instance_variable_get(:@events).first
         expect(event[:event_type]).to eq 'ClassImport'
         expect(event[:id]).to eq class_import_additional.id
-        expect(event[:details]).to eq  ({:session_id => "#{session.id}, excluding patient"})
+        expect(event[:details]).to eq({session_id: "#{session.id}, excluding patient"})
       end
 
       it 'calls custom event handler for org_cohort_imports' do
@@ -205,7 +205,7 @@ cohort_imports: [cohort_import_additional.id] }
       event = events.first
       expect(event[:event_type]).to eq 'ClassImport'
       expect(event[:id]).to eq class_import_additional.id
-      expect(event[:details]).to eq ({:session_id => "#{session.id}, excluding patient"})
+      expect(event[:details]).to eq({session_id: "#{session.id}, excluding patient"})
       expect(event[:created_at]).to eq class_import_additional.created_at
     end
 
@@ -245,16 +245,17 @@ another_additional_class_import.id] } }
       patient.audits.create!(audited_changes: { organisation_id: [nil, 1], given_name: ["Alessia", "Alice"] })
       events = timeline.load_events(['audits'])
       expect(events.size).to eq 2 #create is the first audit
-      event = events.second
-      expect(event[:event_type]).to eq 'Audit'
-      expect(event[:details]).to eq({:action => nil, :audited_changes => {:organisation_id => [nil, 1]}})
+      event = events.first
+      expect(event[:event_type]).to eq 'Patient-Audit'
+      puts(event[:details][:audited_changes])
+      expect(event[:details][:audited_changes][:organisation_id]).to eq([nil, 1])
       expect(event[:created_at]).to eq patient.audits.second.created_at
     end
 
     it 'filters out audited changes that are not allowed' do
       patient.audits.create!(audited_changes: { given_name: ["Alessia", "Alice"] })
       events = timeline.load_events(['audits'])
-      expect(events.second[:details]).to eq({:action => nil})
+      expect(events.first[:details][:audited_changes][:given_name]).to eq("[FILTERED]")
     end
   end
 

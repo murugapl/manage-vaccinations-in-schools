@@ -51,7 +51,7 @@ class TimelineRecords
     year_groups
     home_educated
     source
-  ]
+  ].freeze
 
   def initialize(patient_id, detail_config: {})
     @patient = Patient.find(patient_id)
@@ -127,7 +127,8 @@ class TimelineRecords
     @events.each do |event|
       event[:details] = format_details(event)
     end
-    @grouped_events = @events.group_by { |event| event[:created_at].strftime(Date::DATE_FORMATS[:long]) }.sort_by{ |date, _events| date }.reverse!.to_h
+    @grouped_events = @events.group_by { |event|
+ event[:created_at].strftime(Date::DATE_FORMATS[:long]) }.sort_by{ |date, _events| date }.reverse!.to_h
   end
 
   private
@@ -180,13 +181,13 @@ class TimelineRecords
 
   def audits_events
     @patient.own_and_associated_audits.map do |audit|
-      filtered_changes = audit.audited_changes.transform_keys(&:to_s).map do |key, value|
+      filtered_changes = audit.audited_changes.transform_keys(&:to_s).map { |key, value|
         if ALLOWED_AUDITED_CHANGES.include?(key.to_sym)
           [key, value]
         else
           [key, "[FILTERED]"]
         end
-      end.to_h
+      }.to_h
       
       event_type = "#{audit.auditable_type}-Audit"
       

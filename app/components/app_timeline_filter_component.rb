@@ -2,7 +2,15 @@
 # frozen_string_literal: true
 
 class AppTimelineFilterComponent < ViewComponent::Base
-  def initialize(url:, patient:, event_options:, timeline_fields:, additional_class_imports:, class_imports:, cohort_imports:, sessions:, reset_url:)
+  def initialize(url:, 
+                patient:, 
+                event_options:, 
+                timeline_fields:, 
+                additional_class_imports:, 
+                class_imports:, 
+                cohort_imports:, 
+                sessions:, 
+                reset_url:)
     @url = url
     @patient = patient
     @event_options = event_options

@@ -116,7 +116,7 @@
                 <%= f.govuk_radio_button :compare_option_session,
                                         session,
                                         label: { text: "Session-#{session}" },
-                                        checked: params[:compare_option_session].to_s == session.to_s && :compare_option == 'session',
+                                        checked: params[:compare_option_session].to_s == session.to_s && params[:compare_option] == 'session',
                                         "data-autosubmit-target": "field",
                                         "data-action": "autosubmit#submit",
                                         "data-turbo-permanent": "true" %>
