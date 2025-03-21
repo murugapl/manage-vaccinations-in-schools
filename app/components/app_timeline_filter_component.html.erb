@@ -6,35 +6,40 @@
                     turbo: "true",
                     turbo_action: "replace" },
             builder: GOVUKDesignSystemFormBuilder::FormBuilder do |f| %>
-    <%= f.govuk_fieldset legend: { hidden: true } do %>
-        <%= f.govuk_check_boxes_fieldset :event_names, legend: { text: "Events to display:", size: "s" } do %>
-        <% event_options.each do |value, text| %>
-            <%= f.govuk_check_box :event_names,
-                    value,
-                    label: { text: text },
-                    checked: value.in?(params[:event_names] || []),
-                    "data-autosubmit-target": "field",
-                    "data-action": "autosubmit#submit",
-                    "data-turbo-permanent": "true" %>
-
-            <% available_fields = timeline_fields[value.to_sym] || [] %>
-            <% if value.in?(params[:event_names] || []) && available_fields.any? && (params[:compare_option] == "on" || params[:compare_option].nil?) %>
-                <div class="nhsuk-checkboxes__conditional">
-                <%= f.govuk_check_boxes_fieldset "detail_config[#{value}]", legend: { text: "Select fields for #{text}:", size: "s", hidden: true } do %>
+    <%= f.govuk_fieldset legend: { text: "Events to display:", size: "s" } do %>
+        <% event_options.keys.each do |value| %>
+            <%= f.govuk_check_boxes_fieldset :event_names, legend: { hidden: true } do %>
+                <%= f.govuk_check_box :event_names,
+                        value,
+                        label: { text: value.to_s.humanize },
+                        checked: value.to_s.in?(params[:event_names] || event_options.keys.map(&:to_s)),
+                        "data-autosubmit-target": "field",
+                        "data-action": "autosubmit#submit",
+                        "data-turbo-permanent": "true" do %>
+                
+                <% available_fields = timeline_fields[value.to_sym] || [] %>
+                <% if available_fields.any? %>
                     <% available_fields.each do |field| %>
                         <%= f.govuk_check_box "detail_config[#{value}]",
-                                            field,
-                                            small: true,
-                                            label: { text: field },
-                                            checked: field.to_s.in?(params.dig("detail_config", value) || []), 
-                                            "data-autosubmit-target": "field",
-                                            "data-action": "autosubmit#submit",
-                                            "data-turbo-permanent": "true" %>
+                                        field,
+                                        small: true,
+                                        label: { text: field },
+                                        checked: field.to_s.in?(params.dig("detail_config", value) || []), 
+                                        "data-autosubmit-target": "field",
+                                        "data-action": "autosubmit#submit",
+                                        "data-turbo-permanent": "true" %>
                     <% end %>
                 <% end %>
-                </div>
+                <% end %>
             <% end %>
         <% end %>
+
+        <%= f.govuk_check_box :event_names, "audits", 
+            label: { text: "Audits" }, 
+            checked: "audits".in?(params[:event_names]), 
+            "data-autosubmit-target": "field", 
+            "data-action": "autosubmit#submit", 
+            "data-turbo-permanent": "true" %>
 
         <%= f.govuk_check_box :event_names, "org_cohort_imports", 
             label: { text: "Cohort Imports for Organisation-#{@patient.organisation.id} excluding Patient" }, 
@@ -52,8 +57,6 @@
             "data-turbo-permanent": "true" %>
         <% end %>
 
-
-        <% end %>
         
         <%= f.govuk_radio_buttons_fieldset :compare_option, legend: { text: "Compare with another patient:", size: "s" } do %>
         <%= f.govuk_radio_button :compare_option,
