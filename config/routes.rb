@@ -385,12 +385,6 @@ Rails.application.routes.draw do
     resource :organisations, only: %i[new create]
   end
 
-  namespace :inspect do
-    namespace :timeline do
-      resources :patients, only: [:show]
-    end
-  end
-
   scope via: :all do
     get "/404", to: "errors#not_found"
     get "/422", to: "errors#unprocessable_entity"
@@ -399,4 +393,12 @@ Rails.application.routes.draw do
   end
 
   get "/oidc/jwks", to: "jwks#jwks"
+
+  constraints -> { !Rails.env.production? } do
+    namespace :inspect do
+      namespace :timeline do
+        resources :patients, only: [:show]
+      end
+    end
+  end
 end

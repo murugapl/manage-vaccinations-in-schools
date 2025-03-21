@@ -3,8 +3,9 @@
 module Inspect
   module Timeline
     class PatientsController < ApplicationController
+      skip_after_action :verify_policy_scoped
+      skip_before_action :authenticate_user!
       before_action :set_patient
-      helper_method :event_options
 
       layout "full"
 
@@ -15,7 +16,7 @@ module Inspect
       ].freeze
 
       def set_patient
-        @patient = policy_scope(Patient).find(params[:id])
+        @patient = Patient.find(params[:id])
         timeline = TimelineRecords.new(@patient.id)
         @patient_events = timeline.patient_events(@patient)
         @additional_events = timeline.additional_events(@patient)
