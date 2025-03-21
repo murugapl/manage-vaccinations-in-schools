@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# app/controllers/inspect/timeline/patients_controller.rb
 module Inspect
   module Timeline
     class PatientsController < ApplicationController
@@ -17,11 +16,11 @@ module Inspect
 
       def set_patient
         @patient = policy_scope(Patient).find(params[:id])
-        # Preload events if needed in the view.
         timeline = TimelineRecords.new(@patient.id)
         @patient_events = timeline.patient_events(@patient)
         @additional_events = timeline.additional_events(@patient)
       end
+
       #TODO: Fix so that new patient isn't generated verytime a new option is seletced on filters
       def sample_patient(compare_option)
         case compare_option
@@ -63,14 +62,15 @@ module Inspect
       end
 
       def show
-        # Merge default values into the query parameters if they aren’t present.
-        defaults = DEFAULT_EVENT_NAMES
-        params.reverse_merge!(event_names: defaults)
+        params.reverse_merge!(event_names: DEFAULT_EVENT_NAMES)
+        params[:audit_config] ||= {}
+
+        include_associated_audits = params.dig(:audit_config, :include_associated_audits) == true
+        include_filtered_audit_changes = params.dig(:audit_config, :include_filtered_audit_changes) == true
 
         event_names = params[:event_names]
         compare_option = params[:compare_option] || nil
       
-        # If no detail configuration is provided, add the defaults.
         if params[:detail_config].blank?
           default_details = TimelineRecords::DEFAULT_DETAILS_CONFIG
           new_params = params.to_unsafe_h.merge("detail_config" => default_details)
@@ -78,8 +78,15 @@ module Inspect
         end
 
         @patient_timeline = TimelineRecords
-                              .new(@patient.id, detail_config: build_details_config)
-                              .load_grouped_events(event_names)
+                            .new(
+                              @patient.id, 
+                              detail_config: build_details_config,
+                              audit_config: { 
+                                include_associated_audits: params[:audit_config][:include_associated_audits],
+                                include_filtered_audit_changes: params[:audit_config][:include_filtered_audit_changes]
+                              } 
+                            )
+        .load_grouped_events(event_names)
 
         if @patient_timeline.empty?
           @no_events_message = true
@@ -93,7 +100,14 @@ module Inspect
           @invalid_patient_id = true
         elsif @compare_patient
           @compare_patient_timeline = TimelineRecords
-                                        .new(@compare_patient.id, detail_config: build_details_config)
+                                        .new(
+                                          @compare_patient.id, 
+                                          detail_config: build_details_config,
+                                          audit_config: { 
+                                            include_associated_audits: params[:audit_config][:include_associated_audits],
+                                            include_filtered_audit_changes: params[:audit_config][:include_filtered_audit_changes]
+                                          } 
+                                        )
                                         .load_grouped_events(event_names)
 
           if @compare_patient_timeline.empty?

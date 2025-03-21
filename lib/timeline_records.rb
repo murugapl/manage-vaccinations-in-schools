@@ -23,6 +23,11 @@ class TimelineRecords
     vaccination_records: %i[outcome performed_by_user_id programme_id session_id vaccine_id]
   }.freeze
 
+  DEFAULT_AUDITS_CONFIG = {
+    include_associated_audits: true,
+    include_filtered_audit_changes: false
+  }.freeze
+
   ALLOWED_AUDITED_CHANGES = %i[
     patient_id
     session_id
@@ -56,10 +61,7 @@ class TimelineRecords
   def initialize(
       patient_id, 
       detail_config: {}, 
-      audit_config: {
-        include_associated_audits: true, 
-        include_filtered_audit_changes: false
-      }
+      audit_config: {}
     )
     @patient = Patient.find(patient_id)
     @patient_id = patient_id
@@ -67,8 +69,7 @@ class TimelineRecords
     @additional_events = additional_events(@patient)
     @detail_config = extract_detail_config(detail_config)
     @events = []
-    @include_associated_audits = audit_config[:include_associated_audits]
-    @include_filtered_audit_changes = audit_config[:include_filtered_audit_changes]
+    @audit_config = audit_config
   end
 
   def generate_timeline_console(*event_names, truncate_columns: true)
@@ -104,6 +105,10 @@ class TimelineRecords
 
   def details
     @details ||= DEFAULT_DETAILS_CONFIG.merge(@detail_config)
+  end
+
+  def audits
+    @audits ||= DEFAULT_AUDITS_CONFIG.merge(@audit_config)
   end
 
   def load_events(event_names)
@@ -192,13 +197,13 @@ class TimelineRecords
   end
 
   def audits_events
-    audits = @include_associated_audits ? @patient.own_and_associated_audits : @patient.audits
+    audit_events = audits[:include_associated_audits] ? @patient.own_and_associated_audits : @patient.audits
     
-    audits.map do |audit|
+    audit_events.map do |audit|
       filtered_changes = audit.audited_changes.transform_keys(&:to_s).each_with_object({}) do |(key, value), hash|
         if ALLOWED_AUDITED_CHANGES.include?(key.to_sym)
           hash[key] = value
-        elsif @include_filtered_audit_changes
+        elsif audits[:include_filtered_audit_changes]
           hash[key] = "[FILTERED]"
         end
       end
