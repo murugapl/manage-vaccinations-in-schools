@@ -107,7 +107,10 @@ class TimelineRecords
         records = Array(records)
   
         records.each do |record|
-          event_details = fields.map { |field| [field.to_s, record.send(field)] }.to_h
+          event_details = fields.map { |field| 
+            field_value = record.send(field)
+            [field.to_s, field_value.nil? ? "nil" : field_value]
+          }.to_h
           @events << {
             event_type: record.class.name,
             id: record.id,
@@ -128,7 +131,7 @@ class TimelineRecords
       event[:details] = format_details(event)
     end
     @grouped_events = @events.group_by { |event|
- event[:created_at].strftime(Date::DATE_FORMATS[:long]) }.sort_by{ |date, _events| date }.reverse!.to_h
+    event[:created_at].strftime(Date::DATE_FORMATS[:long]) }.sort_by{ |date, _events| date }.reverse!.to_h
   end
 
   private

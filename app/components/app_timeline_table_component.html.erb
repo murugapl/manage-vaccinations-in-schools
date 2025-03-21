@@ -20,7 +20,7 @@
         <%= body.with_row do |row| %>
           <% # Date header row spanning all columns %>
           <% colspan = @omit_details ? 3 : 4 %>
-          <% row.with_cell(text: "#{date}", colspan: colspan) %>
+          <% row.with_cell(text: content_tag(:strong, date), colspan: colspan) %>
         <% end %>
         <% events.each do |event| %>
           <% body.with_row do |row| %>
@@ -42,7 +42,7 @@
             <% unless @omit_details %>
               <% row.with_cell do %>
                 <span class="nhsuk-table-responsive__heading">Details</span>
-                <%= event[:details] %>
+                <%= format_event_details(event[:details]) %>
               <% end %>
             <% end %>
           <% end %>
