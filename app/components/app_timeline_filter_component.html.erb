@@ -17,19 +17,19 @@
                         "data-action": "autosubmit#submit",
                         "data-turbo-permanent": "true" do %>
                 
-                <% available_fields = timeline_fields[value.to_sym] || [] %>
-                <% if available_fields.any? %>
-                    <% available_fields.each do |field| %>
-                        <%= f.govuk_check_box "detail_config[#{value}]",
-                                        field,
-                                        small: true,
-                                        label: { text: field },
-                                        checked: field.to_s.in?(params.dig("detail_config", value) || []), 
-                                        "data-autosubmit-target": "field",
-                                        "data-action": "autosubmit#submit",
-                                        "data-turbo-permanent": "true" %>
+                    <% available_fields = timeline_fields[value.to_sym] || [] %>
+                    <% if available_fields.any? %>
+                        <% available_fields.each do |field| %>
+                            <%= f.govuk_check_box "detail_config[#{value}]",
+                                            field,
+                                            small: true,
+                                            label: { text: field },
+                                            checked: field.to_s.in?(params.dig("detail_config", value) || []), 
+                                            "data-autosubmit-target": "field",
+                                            "data-action": "autosubmit#submit",
+                                            "data-turbo-permanent": "true" %>
+                        <% end %>
                     <% end %>
-                <% end %>
                 <% end %>
             <% end %>
         <% end %>

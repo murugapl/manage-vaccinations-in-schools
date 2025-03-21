@@ -92,7 +92,6 @@ module Inspect
         if @compare_patient == :invalid_patient
           @invalid_patient_id = true
         elsif @compare_patient
-          # Generate timeline for the compare patient
           @compare_patient_timeline = TimelineRecords
                                         .new(@compare_patient.id, detail_config: build_details_config)
                                         .load_grouped_events(event_names)
