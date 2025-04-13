@@ -1,0 +1,65 @@
+<!-- app/components/ops_support/app_associations_table.html.erb -->
+<%= render AppCardComponent.new do |card| %>
+  <%# Use the title with the total count in the heading %>
+  <% card.with_heading { "#{@title} (#{count} results)" } %>
+
+  <%= form_with url: @search_path, method: :get, builder: GOVUKDesignSystemFormBuilder::FormBuilder do |f| %>
+    <div class="app-search-input" role="search">
+      <%= f.govuk_text_field :q,
+                             label: { text: "Search", class: "nhsuk-u-visually-hidden" },
+                             autocomplete: "off",
+                             class: "app-search-input__input" %>
+  
+      <button class="nhsuk-button nhsuk-button--secondary app-button--icon app-search-input__submit" data-module="nhsuk-button" type="submit">
+        <svg class="nhsuk-icon nhsuk-icon__search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" focusable="false" role="img">
+          <title>Search</title>
+          <path d="M19.71 18.29l-4.11-4.1a7 7 0 1 0-1.41 1.41l4.1 4.11a1 1 0 0 0 1.42 0 1 1 0 0 0 0-1.42zM5 10a5 5 0 1 1 5 5 5 5 0 0 1-5-5z" fill="currentColor"></path>
+        </svg>
+      </button>
+    </div>
+  <% end %>
+
+  <%= govuk_table(html_attributes: { class: "nhsuk-table-responsive" }) do |table| %>
+    <% table.with_head do |head| %>
+      <% head.with_row do |row| %>
+        <% row.with_cell(text: "#{@title} Name") %>
+        <% row.with_cell(text: "ID") %>
+      <% end %>
+    <% end %>
+    <% table.with_body do |body| %>
+      <% if @records.present? %>
+        <% if @records.respond_to?(:each) %>
+          <% @records.each do |record| %>
+            <% body.with_row do |row| %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading"><%= "#{@title} Name" %></span>
+                <%# Depending on the record type and routes, adjust the link_to helper as necessary %>
+                <%= link_to display_value(record), ops_support_path(object_id: record.id, object_type:@title) %>
+              <% end %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading">ID</span>
+                <%= record.id %>
+              <% end %>
+            <% end %>
+          <% end %>
+        <% else %>
+          <%# Single record scenario %>
+          <% body.with_row do |row| %>
+            <% row.with_cell do %>
+              <span class="nhsuk-table-responsive__heading"><%= "#{@title} Name" %></span>
+              <%= link_to display_value(@records), ops_support_path(object_id: record.id, object_type:@title) %>
+            <% end %>
+            <% row.with_cell do %>
+              <span class="nhsuk-table-responsive__heading">ID</span>
+              <%= @records.id %>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% else %>
+        <% body.with_row do |row| %>
+          <% row.with_cell(text: "No #{@title.downcase} found.", colspan: 2) %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

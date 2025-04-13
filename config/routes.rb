@@ -324,4 +324,10 @@ Rails.application.routes.draw do
   end
 
   get "/oidc/jwks", to: "jwks#jwks"
+
+  constraints -> { !Rails.env.production? } do
+    namespace :ops_support do
+      get "records/:object_type/:object_id", to: "records#show"
+    end
+  end
 end

@@ -1,0 +1,88 @@
+<%= h1 page_title: @object_type do %>
+  <%= @object_type %>-<%= params[:object_id] %>
+<% end %>
+
+<div class="nhsuk-grid-row">
+  <div class="nhsuk-grid-column-one-half">
+    <%= render AppCardComponent.new do |card| %>
+      <% card.with_heading { "Attributes" } %>
+  <%= govuk_table(html_attributes: { class: "nhsuk-table-responsive" }) do |table| %>
+  <% table.with_head do |head| %>
+    <% head.with_row do |row| %>
+      <% row.with_cell(text: "Field") %>
+      <% row.with_cell(text: "Value") %>
+    <% end %>
+  <% end %>
+
+  <% table.with_body do |body| %>
+    <% @decomposed[:attributes].each do |field, value| %>
+      <% body.with_row do |row| %>
+        <% row.with_cell do %>
+          <span class="nhsuk-table-responsive__heading">Field</span>
+          <%= field.humanize %>
+        <% end %>
+        <% row.with_cell do %>
+          <span class="nhsuk-table-responsive__heading">Value</span>
+          <%= value.presence || "nil" %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% end %>
+</div>
+<div class="nhsuk-grid-column-one-half">
+  <%= render AppCardComponent.new do |card| %>
+    <% card.with_heading { "Associations" } %>
+  <%= govuk_table(html_attributes: { class: "nhsuk-table-responsive" }) do |table| %>
+  <% table.with_head do |head| %>
+    <% head.with_row do |row| %>
+      <% row.with_cell(text: "Object Type") %>
+      <% row.with_cell(text: "ID") %>
+    <% end %>
+  <% end %>
+
+  <% table.with_body do |body| %>
+    <% if @decomposed[:associations].present? %>
+      <% @decomposed[:associations].each do |assoc, related_objects| %>
+        <% if related_objects.respond_to?(:each) %>
+          <% related_objects.each do |obj| %>
+            <% body.with_row do |row| %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading">Object Type</span>
+                <%= link_to obj.class.name, ops_support_path(object_type: obj.class.name.underscore, object_id: obj.id) %>
+              <% end %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading">ID</span>
+                <%= obj.try(:id) || "N/A" %>
+              <% end %>
+            <% end %>
+          <% end %>
+        <% else %>
+          <% record = related_objects %>
+          <% if record.present? %>
+            <% body.with_row do |row| %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading">Object Type</span>
+                <%= link_to record.class.name, ops_support_path(object_type: record.class.name.underscore, object_id: record.id) %>
+              <% end %>
+              <% row.with_cell do %>
+                <span class="nhsuk-table-responsive__heading">ID</span>
+                <%= record.id %>
+              <% end %>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% else %>
+      <% body.with_row do |row| %>
+        <% row.with_cell(text: "No associations found.", colspan: 2) %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>
+
+  <% end %>
+  </div>
+</div>
