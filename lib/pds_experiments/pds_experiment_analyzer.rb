@@ -12,6 +12,10 @@ module PDSExperiments
       family_name_discrepancies
       date_of_birth_discrepancies
       bad_requests
+      family_name_discrepancy_ids
+      avg_time
+      total_time
+      count
     ].freeze
 
     def initialize(experiment_name)
@@ -40,6 +44,11 @@ module PDSExperiments
         date_of_birth_discrepancies:
           counters["date_of_birth_discrepancies"] || 0,
         bad_requests: counters["bad_requests"] || 0,
+        total_time: counters["total_time"] || 0,
+        avg_time: counters["avg_time"] || 0,
+        family_name_discrepancy_ids:
+          counters["family_name_discrepancy_ids"] || [],
+        count: counters["count"] || 0,
         summary:
           generate_summary(counters, total, successful, coverage_percentage)
       }
